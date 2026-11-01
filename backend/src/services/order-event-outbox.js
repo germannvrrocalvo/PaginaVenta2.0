@@ -170,7 +170,9 @@ function createOrderEventOutbox(pool, {
         [record.id, nextStatus, delay, httpStatus, message]
       )
       logger.error(
-        `No se pudo entregar ${record.event_id} a n8n (intento ${record.attempts}/${maxAttempts}, estado ${nextStatus}).`
+        `No se pudo entregar ${record.event_id} a n8n ` +
+        `(intento ${record.attempts}/${maxAttempts}, estado ${nextStatus}, ` +
+        `HTTP ${httpStatus ?? 'sin respuesta'}): ${message}`
       )
     } finally {
       clearTimeout(timeout)
