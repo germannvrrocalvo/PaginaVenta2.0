@@ -1,0 +1,25 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:render": "node scripts/init-db.js && node src/server.js",
+    "test": "node --test test/*.test.cjs && node ../frontend/pricing.test.mjs"
+  },
+  "engines": {
+    "node": ">=22 <25"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "nodemailer": "^10.0.13",
+    "pg": "^8.23.1"
+  }
+}
