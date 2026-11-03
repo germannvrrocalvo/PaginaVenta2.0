@@ -354,7 +354,7 @@ body {
   .page-content {
     padding: 20px 15px;
   }
-
+}
 
 /* =================================
    8. DASHBOARD
@@ -1840,5 +1840,148 @@ body {
   }
 }
 
+/* =================================
+   LOGIN Y SESIÓN
+================================= */
 
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: linear-gradient(160deg, #172b4d 0%, #1e3a6e 55%, #f4f6f9 55%);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 32px 28px;
+  box-shadow: 0 20px 45px rgba(23, 43, 77, 0.18);
+  display: flex;
+  flex-direction: column;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.login-brand .brand-icon {
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-brand h1 {
+  font-size: 22px;
+  color: #172b4d;
+}
+
+.login-brand span {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.login-subtitle {
+  font-size: 14px;
+  color: #475569;
+  margin-bottom: 20px;
+}
+
+.login-card label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.login-card input {
+  height: 42px;
+  border: 1px solid #d5dbe5;
+  border-radius: 9px;
+  padding: 0 12px;
+  font-size: 14px;
+  margin-bottom: 16px;
+  outline: none;
+}
+
+.login-card input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.login-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 9px 11px;
+  margin-bottom: 14px;
+}
+
+.login-button {
+  height: 44px;
+  border: none;
+  border-radius: 9px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.login-button:hover {
+  background: #1d4ed8;
+}
+
+.login-button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.login-note {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.auth-loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+}
+
+.logout-button {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  background: #fee2e2;
+  color: #b91c1c;
 }
