@@ -102,7 +102,16 @@ function createBackofficeIncidentSync(storePool, backofficeActivity, {
         try {
           await syncReference(row.referencia)
         } catch (error) {
-          logger.warn?.(`No se pudo sincronizar ${row.referencia} con el back office; se reintentará.`)
+          const diagnostic = [
+            error?.code && `code=${error.code}`,
+            error?.table && `table=${error.table}`,
+            error?.column && `column=${error.column}`,
+            error?.constraint && `constraint=${error.constraint}`,
+          ].filter(Boolean).join(', ')
+          logger.warn?.(
+            `No se pudo sincronizar ${row.referencia} con el back office; se reintentará` +
+            (diagnostic ? ` (${diagnostic}).` : '.')
+          )
         }
       }
     } finally {
