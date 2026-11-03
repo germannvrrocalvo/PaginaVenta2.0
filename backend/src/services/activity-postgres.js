@@ -7,7 +7,7 @@ function fail(status, message) {
   throw error
 }
 
-function createPostgresActivityService(pool, getUserForToken) {
+function createPostgresActivityService(pool, getUserForToken, incidentSync = null) {
   async function track(input, token) {
     const { type, payload = {}, sessionId } = input ?? {}
     if (!EVENT_TYPES.has(type)) fail(400, 'El tipo de evento no es válido.')
@@ -106,6 +106,14 @@ function createPostgresActivityService(pool, getUserForToken) {
         }), ticket.numero_pedido_indicado]
       )
       await client.query('COMMIT')
+      if (incidentSync) {
+        try {
+          await incidentSync.syncReference(ticket.referencia)
+        } catch {
+          // El ticket ya está confirmado en la tienda. El worker conserva el
+          // error y reintentará sin hacer fallar la solicitud del cliente.
+        }
+      }
       return {
         id: ticket.referencia,
         createdAt: new Date(ticket.fecha_creacion).toISOString(),

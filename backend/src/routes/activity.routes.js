@@ -1,6 +1,6 @@
 const express = require('express')
 
-function createActivityRouter(activityService, getUserForToken) {
+function createActivityRouter(activityService, getUserForToken, { includeAdminRoutes = true } = {}) {
   const router = express.Router()
 
   const getBearerToken = (req) => {
@@ -34,7 +34,7 @@ function createActivityRouter(activityService, getUserForToken) {
     }
   })
 
-  router.get('/eventos', async (req, res) => {
+  if (includeAdminRoutes) router.get('/eventos', async (req, res) => {
     try {
       if (!(await requireAdmin(req, res))) return
       res.json(await activityService.listEvents())
@@ -43,7 +43,7 @@ function createActivityRouter(activityService, getUserForToken) {
     }
   })
 
-  router.delete('/eventos', async (req, res) => {
+  if (includeAdminRoutes) router.delete('/eventos', async (req, res) => {
     try {
       if (!(await requireAdmin(req, res))) return
       await activityService.clearEvents()
@@ -61,7 +61,7 @@ function createActivityRouter(activityService, getUserForToken) {
     }
   })
 
-  router.get('/Tickets_soporte', async (req, res) => {
+  if (includeAdminRoutes) router.get('/Tickets_soporte', async (req, res) => {
     try {
       if (!(await requireAdmin(req, res))) return
       res.json(await activityService.listTickets())
@@ -70,7 +70,7 @@ function createActivityRouter(activityService, getUserForToken) {
     }
   })
 
-  router.patch('/Tickets_soporte/:reference/estado', async (req, res) => {
+  if (includeAdminRoutes) router.patch('/Tickets_soporte/:reference/estado', async (req, res) => {
     try {
       if (!(await requireAdmin(req, res))) return
       res.json(await activityService.updateTicketStatus(req.params.reference, req.body?.status))
@@ -79,7 +79,7 @@ function createActivityRouter(activityService, getUserForToken) {
     }
   })
 
-  router.delete('/Tickets_soporte', async (req, res) => {
+  if (includeAdminRoutes) router.delete('/Tickets_soporte', async (req, res) => {
     try {
       if (!(await requireAdmin(req, res))) return
       await activityService.clearTickets()

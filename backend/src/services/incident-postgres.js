@@ -23,17 +23,19 @@ function mapAction(row) {
 function createPostgresIncidentService(pool, agentClient) {
   async function findTicket(reference) {
     const { rows } = await pool.query(
-      `SELECT i.referencia, i.agent_incident_id, i.agent_analysis_status,
+      `SELECT i.source_reference AS referencia,
+              i.incident_id AS agent_incident_id,
+              i.analysis_status AS agent_analysis_status,
               a.id AS action_id, a.case_type, a.proposed_action, a.justification,
               a.confidence, a.risks, a.review_status, a.reviewed_by,
               a.reviewed_at, a.created_at AS action_created_at
-       FROM incidencia i
+       FROM incidents i
        LEFT JOIN LATERAL (
          SELECT * FROM agent_actions
-         WHERE incident_id = i.agent_incident_id
+         WHERE incident_id = i.incident_id
          ORDER BY created_at DESC, id DESC LIMIT 1
        ) a ON true
-       WHERE i.referencia = $1`,
+       WHERE i.source_reference = $1`,
       [reference]
     )
     return rows[0] || null
@@ -50,13 +52,13 @@ function createPostgresIncidentService(pool, agentClient) {
     }
 
     const { rows } = await pool.query(
-      `UPDATE incidencia
-       SET agent_analysis_status = 'running', agent_analysis_requested_at = now(),
-           agent_analysis_error = NULL
-       WHERE referencia = $1
-         AND (agent_analysis_status <> 'running'
-              OR agent_analysis_requested_at < now() - interval '5 minutes')
-       RETURNING agent_incident_id`,
+      `UPDATE incidents
+       SET analysis_status = 'running', analysis_requested_at = now(),
+           analysis_error = NULL, updated_at = now()
+       WHERE source_reference = $1
+         AND (analysis_status <> 'running'
+              OR analysis_requested_at < now() - interval '5 minutes')
+       RETURNING incident_id AS agent_incident_id`,
       [reference]
     )
     if (!rows[0]) fail(409, 'Esta incidencia ya se está analizando.')
@@ -67,15 +69,17 @@ function createPostgresIncidentService(pool, agentClient) {
       const action = mapAction(updated)
       if (!action) fail(502, 'n8n terminó sin registrar una propuesta del agente.')
       await pool.query(
-        `UPDATE incidencia SET agent_analysis_status = 'completed', agent_analysis_error = NULL
-         WHERE referencia = $1`,
+        `UPDATE incidents
+         SET analysis_status = 'completed', analysis_error = NULL, updated_at = now()
+         WHERE source_reference = $1`,
         [reference]
       )
       return { status: 'completed', action }
     } catch (error) {
       await pool.query(
-        `UPDATE incidencia SET agent_analysis_status = 'failed', agent_analysis_error = $2
-         WHERE referencia = $1`,
+        `UPDATE incidents
+         SET analysis_status = 'failed', analysis_error = $2, updated_at = now()
+         WHERE source_reference = $1`,
         [reference, String(error.message || error).slice(0, 500)]
       )
       throw error
@@ -89,9 +93,9 @@ function createPostgresIncidentService(pool, agentClient) {
     const { rows } = await pool.query(
       `WITH target AS (
          SELECT a.id
-         FROM incidencia i
-         JOIN agent_actions a ON a.incident_id = i.agent_incident_id
-         WHERE i.referencia = $1 AND a.review_status = 'pending_review'
+         FROM incidents i
+         JOIN agent_actions a ON a.incident_id = i.incident_id
+         WHERE i.source_reference = $1 AND a.review_status = 'pending_review'
          ORDER BY a.created_at DESC, a.id DESC LIMIT 1
        )
        UPDATE agent_actions a

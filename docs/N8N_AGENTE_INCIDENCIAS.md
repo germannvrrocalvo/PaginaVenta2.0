@@ -3,11 +3,12 @@
 ## Recorrido completo
 
 1. El cliente envía el formulario de soporte de la tienda.
-2. El backend guarda el ticket y su UUID de agente en la misma transacción.
+2. El backend guarda el ticket en la base de la tienda y lo replica, con
+   reintentos, a `sie-backoffice-db`.
 3. Un administrador abre **Back-office > Incidencias** y pulsa **Analizar con IA**.
 4. El backend autentica al administrador y llama al webhook de n8n. La URL y el
    secreto nunca llegan al navegador.
-5. n8n valida el UUID, consulta la incidencia y registra una propuesta en
+5. n8n valida el UUID, consulta la incidencia en `sie-backoffice-db` y registra una propuesta en
    `agent_actions` con `review_status = pending_review`.
 6. El back office muestra la acción, la justificación, los riesgos y la
    confianza. Una persona debe aprobarla o rechazarla.
@@ -25,6 +26,9 @@ URL o clave real en el repositorio.
 
 ## Variables de Render
 
+- `DATABASE_URL`: base de la tienda. Se mantiene independiente.
+- `BACKOFFICE_DATABASE_URL`: conexión de `sie-backoffice-db`, compartida por
+  CoreAdmin y los datos operativos del agente.
 - `N8N_INCIDENT_AGENT_WEBHOOK_URL`: **Production URL** del webhook
   `agente-incidencias`.
 - `N8N_INCIDENT_AGENT_WEBHOOK_HEADER`: nombre exacto de la cabecera creada en
@@ -32,6 +36,10 @@ URL o clave real en el repositorio.
 - `N8N_INCIDENT_AGENT_WEBHOOK_SECRET`: el mismo valor secreto de esa
   credencial.
 - `N8N_INCIDENT_AGENT_TIMEOUT_MS`: `60000`.
+
+La credencial PostgreSQL de los nodos `consultar_incidencia` y
+`registrar_propuesta` debe usar la misma base indicada por
+`BACKOFFICE_DATABASE_URL`, nunca `DATABASE_URL`.
 
 Guarda las tres primeras como secretos en Render. No uses una URL de prueba ni
 incluyas el secreto en capturas o en la entrega.

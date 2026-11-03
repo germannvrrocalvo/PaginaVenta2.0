@@ -32,11 +32,33 @@ async function main() {
             "009_order_created_outbox.sql",
             "010_order_status_changed.sql",
             "011_incident_agent.sql",
+            "012_separate_backoffice.sql",
         ]) {
             await pool.query(fs.readFileSync(
                 path.join(databaseDir, "migrations", migration),
                 "utf8"
             ));
+        }
+
+        if (!process.env.BACKOFFICE_DATABASE_URL) {
+            throw new Error("BACKOFFICE_DATABASE_URL no está configurada.");
+        }
+        console.log("Preparando la base de datos independiente del back office...");
+        const backofficePool = createPool(
+            process.env.BACKOFFICE_DATABASE_URL,
+            "BACKOFFICE_DATABASE_URL"
+        );
+        try {
+            await backofficePool.query(fs.readFileSync(
+                path.join(databaseDir, "backoffice", "schema.sql"),
+                "utf8"
+            ));
+            await backofficePool.query(fs.readFileSync(
+                path.join(databaseDir, "backoffice", "dashboard.sql"),
+                "utf8"
+            ));
+        } finally {
+            await backofficePool.end();
         }
     } finally {
         await pool.end();

@@ -19,18 +19,28 @@ const { createReceiptEmailService } = require("./services/receipt-email");
 const { createOrderEventOutbox } = require("./services/order-event-outbox");
 const { createIncidentAgentClient } = require("./services/incident-agent-client");
 const { createPostgresIncidentService } = require("./services/incident-postgres");
+const { createBackofficeAuthService } = require("./services/backoffice-auth-postgres");
+const { createBackofficeActivityService } = require("./services/backoffice-activity-postgres");
+const { createBackofficeIncidentSync } = require("./services/backoffice-incident-sync");
+const { createBackofficeAuthRouter } = require("./routes/backoffice-auth.routes");
+const { createBackofficeRouter } = require("./routes/backoffice.routes");
 const productos = require("./data/productos");
 
 function createApp(authService = null, {
     paypalService = createPaypalService(),
     receiptEmailService = createReceiptEmailService(),
 } = {}) {
+    const hasInjectedAuthService = Boolean(authService);
     const app = express();
     let pool = null;
+    let backofficePool = null;
     let productService;
     let orderService;
     let activityService;
+    let backofficeAuthService = null;
+    let backofficeActivityService = null;
     let orderEventOutbox = null;
+    let backofficeIncidentSync = null;
     let incidentService = null;
     let ready = Promise.resolve();
 
@@ -45,7 +55,14 @@ function createApp(authService = null, {
         });
     } else {
         pool = createPool();
+        backofficePool = createPool(
+            process.env.BACKOFFICE_DATABASE_URL,
+            "BACKOFFICE_DATABASE_URL"
+        );
         authService = createPostgresAuthService(pool);
+        backofficeAuthService = createBackofficeAuthService(backofficePool);
+        backofficeActivityService = createBackofficeActivityService(backofficePool);
+        backofficeIncidentSync = createBackofficeIncidentSync(pool, backofficeActivityService);
         productService = createPostgresProductService(pool, productos);
         orderEventOutbox = createOrderEventOutbox(pool);
         orderService = createPostgresOrderService(
@@ -56,20 +73,24 @@ function createApp(authService = null, {
         );
         activityService = createPostgresActivityService(
             pool,
-            (token) => authService.getUserForToken(token)
+            (token) => authService.getUserForToken(token),
+            backofficeIncidentSync
         );
-        incidentService = createPostgresIncidentService(pool, createIncidentAgentClient());
+        incidentService = createPostgresIncidentService(backofficePool, createIncidentAgentClient());
         ready = Promise.all([
             authService.initialize(),
+            backofficeAuthService.initialize(),
             pool.query("SELECT codigo FROM producto WHERE activo"),
             pool.query("SELECT paypal_order_id, paypal_capture_id FROM pago LIMIT 0"),
-        ]).then(([, result]) => {
+            backofficePool.query("SELECT incident_id FROM incidents LIMIT 0"),
+        ]).then(([, , result]) => {
             const activeCodes = new Set(result.rows.map((row) => row.codigo));
             const missingProducts = productos.filter((product) => !activeCodes.has(product.id));
             if (missingProducts.length) {
                 throw new Error(`Faltan productos del catálogo en PostgreSQL: ${missingProducts.map((product) => product.id).join(", ")}. Ejecuta database/Datos.sql.`);
             }
             orderEventOutbox.start();
+            backofficeIncidentSync.start();
         });
     }
     const configuredOrigins = (process.env.FRONTEND_ORIGIN || "")
@@ -97,17 +118,30 @@ function createApp(authService = null, {
     app.use("/api/auth", createAuthRouter(authService));
     app.use("/api/pedidos", createOrdersRouter(orderService));
     app.use("/api/pagos", createPaypalRouter({ orderService, paypalService, receiptEmailService }));
-    app.use("/api", createActivityRouter(activityService, (token) => authService.getUserForToken(token)));
+    app.use("/api", createActivityRouter(
+        activityService,
+        (token) => authService.getUserForToken(token),
+        { includeAdminRoutes: hasInjectedAuthService }
+    ));
+    if (backofficeAuthService && backofficeActivityService) {
+        app.use("/api/backoffice/auth", createBackofficeAuthRouter(backofficeAuthService));
+        app.use("/api/backoffice", createBackofficeRouter(
+            backofficeActivityService,
+            (token) => backofficeAuthService.getUserForToken(token)
+        ));
+    }
     if (incidentService) {
-        app.use("/api/incidencias", createIncidentsRouter(
+        app.use("/api/backoffice/incidencias", createIncidentsRouter(
             incidentService,
-            (token) => authService.getUserForToken(token)
+            (token) => backofficeAuthService.getUserForToken(token)
         ));
     }
     app.locals.ready = ready;
     app.locals.closeDatabase = async () => {
         orderEventOutbox?.stop();
+        backofficeIncidentSync?.stop();
         await pool?.end();
+        await backofficePool?.end();
     };
     app.get("/", (req, res) => {
         res.json({
@@ -129,12 +163,12 @@ if (require.main === module) {
                 console.log(`Servidor ejecutándose en el puerto ${PORT}`);
             });
         }).catch(async (error) => {
-            console.error("No se pudo iniciar PostgreSQL. Comprueba DATABASE_URL y ejecuta database/Estructura.sql y database/Datos.sql:", error);
+            console.error("No se pudo iniciar PostgreSQL. Comprueba DATABASE_URL y BACKOFFICE_DATABASE_URL y aplica sus migraciones:", error);
             await app.locals.closeDatabase();
             process.exitCode = 1;
         });
     } catch (error) {
-        console.error("No se pudo configurar PostgreSQL. Comprueba DATABASE_URL:", error);
+        console.error("No se pudo configurar PostgreSQL. Comprueba DATABASE_URL y BACKOFFICE_DATABASE_URL:", error);
         process.exitCode = 1;
     }
 }

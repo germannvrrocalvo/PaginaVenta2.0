@@ -10,6 +10,8 @@ const sandboxMigration = readFileSync(join(__dirname, '../../database/migrations
 const outboxMigration = readFileSync(join(__dirname, '../../database/migrations/009_order_created_outbox.sql'), 'utf8')
 const statusOutboxMigration = readFileSync(join(__dirname, '../../database/migrations/010_order_status_changed.sql'), 'utf8')
 const incidentAgentMigration = readFileSync(join(__dirname, '../../database/migrations/011_incident_agent.sql'), 'utf8')
+const separateBackofficeMigration = readFileSync(join(__dirname, '../../database/migrations/012_separate_backoffice.sql'), 'utf8')
+const backofficeSchema = readFileSync(join(__dirname, '../../database/backoffice/schema.sql'), 'utf8')
 
 test('el esquema limita método/referencia de pago y persiste las referencias PayPal', () => {
   assert.match(structure, /metodo\s+VARCHAR\(20\)\s+NOT NULL DEFAULT 'paypal_simulado' CHECK \(metodo IN \('paypal_simulado'\)\)/)
@@ -76,4 +78,13 @@ test('el agente enlaza incidencias de tienda y conserva revisión humana', () =>
   }
   assert.match(incidentAgentMigration, /pending_review/)
   assert.match(incidentAgentMigration, /ON CONFLICT \(source_reference\)/)
+})
+
+test('el back office tiene esquema, autenticación y reintentos independientes', () => {
+  assert.match(backofficeSchema, /CREATE TABLE IF NOT EXISTS backoffice_admins/)
+  assert.match(backofficeSchema, /CREATE TABLE IF NOT EXISTS incidents/)
+  assert.match(backofficeSchema, /CREATE TABLE IF NOT EXISTS agent_actions/)
+  assert.match(backofficeSchema, /source_reference/)
+  assert.match(separateBackofficeMigration, /backoffice_sync_status/)
+  assert.match(separateBackofficeMigration, /backoffice_next_attempt_at/)
 })

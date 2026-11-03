@@ -10,7 +10,7 @@ export function AuthProvider({ children }) {
   // Si hay token guardado, comprobamos que sigue siendo válido
   useEffect(() => {
     if (!getToken()) return
-    api('/auth/me')
+    api('/backoffice/auth/me')
       .then((data) => setUser(data.user))
       .catch(() => setToken(null))
       .finally(() => setLoading(false))
@@ -24,7 +24,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = async (email, password) => {
-    const data = await api('/auth/login', {
+    const data = await api('/backoffice/auth/login', {
       method: 'POST',
       body: { email, password },
       auth: false,
@@ -36,7 +36,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await api('/auth/logout', { method: 'POST' })
+      await api('/backoffice/auth/logout', { method: 'POST' })
     } catch {
       // aunque falle, cerramos sesión en el navegador
     }

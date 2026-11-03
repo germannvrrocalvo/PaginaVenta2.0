@@ -4,7 +4,9 @@ La aplicación se publica en tres piezas:
 
 - **DonDominio:** frontend estático.
 - **Render Web Service:** backend Node.js.
-- **Render Postgres:** base de datos.
+- **Neon (tienda):** base transaccional de la tienda.
+- **Neon `sie-backoffice-db`:** pedidos replicados, integración, incidencias,
+  agente IA, revisiones humanas, métricas y acceso de CoreAdmin.
 
 ## 1. Subir el proyecto a un repositorio privado
 
@@ -16,6 +18,10 @@ Render necesita leer el proyecto desde GitHub, GitLab o Bitbucket. Antes de subi
 2. Conecta el repositorio del proyecto.
 3. Render detectará `render.yaml` y propondrá `ucam-stereo-api` y `ucam-stereo-db`.
 4. Completa las variables que Render solicite:
+   - `DATABASE_URL`: conexión de la tienda (`lucky-haze`). No se sustituye por
+     la conexión del back office.
+   - `BACKOFFICE_DATABASE_URL`: conexión completa de `sie-backoffice-db`.
+     Se configura como secreto y nunca se añade al repositorio.
    - `FRONTEND_URL`: dirección pública final, por ejemplo `https://tudominio.es`.
    - `FRONTEND_ORIGIN`: orígenes permitidos separados por comas. Incluye la tienda y la URL pública de `core-admin`, ambas sin barra final.
    - `PAYPAL_CLIENT_ID` y `PAYPAL_CLIENT_SECRET`: credenciales Sandbox de PayPal para las pruebas.
@@ -25,6 +31,11 @@ Render necesita leer el proyecto desde GitHub, GitLab o Bitbucket. Antes de subi
    - `N8N_INCIDENT_AGENT_WEBHOOK_HEADER`: nombre exacto de la cabecera de la credencial Header Auth de n8n.
    - `N8N_INCIDENT_AGENT_WEBHOOK_SECRET`: valor secreto de esa credencial. Nunca se añade al repositorio.
 5. Crea el Blueprint y espera a que `/health` responda con `{ "estado": "ok" }`.
+
+El backend usa dos conexiones. La compra se confirma únicamente en la base de
+la tienda. Las incidencias se replican a `sie-backoffice-db`; si esa segunda
+base no está disponible, el ticket de la tienda no se pierde y queda marcado
+para reintento.
 
 La primera ejecución crea las tablas y carga el catálogo si la base está vacía. Los reinicios siguientes no vuelven a cargar ni borran datos.
 
