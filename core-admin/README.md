@@ -1,4 +1,21 @@
-# React + Vite
+# CoreAdmin conectado
+
+El panel usa la misma API Node.js de la tienda. En producción crea
+`.env.production` a partir de `.env.production.example` y configura
+`VITE_API_URL` con la URL pública del backend, sin `/api` al final.
+
+Las páginas **Incidencias** y **Agente IA** ya no usan datos de demostración:
+leen las solicitudes de soporte guardadas por la tienda, lanzan el workflow de
+n8n mediante el backend y registran la aprobación o el rechazo del administrador.
+
+```bash
+npm ci
+npm run build
+```
+
+Publica el contenido de `dist` y añade su origen a `FRONTEND_ORIGIN` en Render.
+
+# Notas de la plantilla React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 

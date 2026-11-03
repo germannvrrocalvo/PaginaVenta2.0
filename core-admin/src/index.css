@@ -1534,6 +1534,75 @@ body {
   white-space: nowrap;
 }
 
+.agent-live-status {
+  margin-left: auto;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.backoffice-message {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.backoffice-message.ok {
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+}
+
+.backoffice-message.error {
+  color: #991b1b;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+}
+
+.agent-run-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #eff6ff;
+}
+
+.agent-run-box p {
+  margin: 5px 0 0;
+  color: #475569;
+  font-size: 13px;
+}
+
+.agent-run-box .save-status-btn {
+  flex: 0 0 auto;
+}
+
+.incident-agent-result {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid #e8ecf2;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.incident-agent-result p {
+  margin: 0;
+  color: #334155;
+}
+
+@media (max-width: 720px) {
+  .agent-run-box { align-items: stretch; flex-direction: column; }
+  .agent-live-status { margin-left: 0; }
+}
+
 .agent-summary {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

@@ -65,6 +65,19 @@ test('tickets y eventos se registran en backend y quedan restringidos a administ
   assert.equal(tickets.body.length, 1)
   assert.equal(tickets.body[0].id, ticket.body.id)
 
+  const updatedTicket = await request(`/Tickets_soporte/${ticket.body.id}/estado`, {
+    method: 'PATCH',
+    token: adminToken,
+    body: { status: 'en_curso' },
+  })
+  assert.equal(updatedTicket.status, 200)
+  assert.equal(updatedTicket.body.status, 'en_curso')
+  assert.equal((await request(`/Tickets_soporte/${ticket.body.id}/estado`, {
+    method: 'PATCH',
+    token: customerToken,
+    body: { status: 'resuelta' },
+  })).status, 403)
+
   const event = await request('/eventos', {
     method: 'POST',
     token: customerToken,

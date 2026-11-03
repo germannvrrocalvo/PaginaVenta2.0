@@ -17,10 +17,13 @@ Render necesita leer el proyecto desde GitHub, GitLab o Bitbucket. Antes de subi
 3. Render detectará `render.yaml` y propondrá `ucam-stereo-api` y `ucam-stereo-db`.
 4. Completa las variables que Render solicite:
    - `FRONTEND_URL`: dirección pública final, por ejemplo `https://tudominio.es`.
-   - `FRONTEND_ORIGIN`: la misma dirección, sin una barra final. Se pueden separar varias direcciones con comas.
+   - `FRONTEND_ORIGIN`: orígenes permitidos separados por comas. Incluye la tienda y la URL pública de `core-admin`, ambas sin barra final.
    - `PAYPAL_CLIENT_ID` y `PAYPAL_CLIENT_SECRET`: credenciales Sandbox de PayPal para las pruebas.
    - `N8N_WEBHOOK_URL` y `N8N_WEBHOOK_SECRET`: dirección pública y secreto del webhook de recibos de pago. Se pueden dejar vacías hasta publicar n8n.
    - `N8N_ORDER_WEBHOOK_URL` y `N8N_ORDER_WEBHOOK_SECRET`: Production URL y secreto privado del webhook `order.created`. La configuración detallada está en `docs/N8N_PEDIDOS.md`.
+   - `N8N_INCIDENT_AGENT_WEBHOOK_URL`: Production URL del webhook `agente-incidencias`.
+   - `N8N_INCIDENT_AGENT_WEBHOOK_HEADER`: nombre exacto de la cabecera de la credencial Header Auth de n8n.
+   - `N8N_INCIDENT_AGENT_WEBHOOK_SECRET`: valor secreto de esa credencial. Nunca se añade al repositorio.
 5. Crea el Blueprint y espera a que `/health` responda con `{ "estado": "ok" }`.
 
 La primera ejecución crea las tablas y carga el catálogo si la base está vacía. Los reinicios siguientes no vuelven a cargar ni borran datos.
@@ -38,6 +41,14 @@ La primera ejecución crea las tablas y carga el catálogo si la base está vac�
 ## 4. Subir el frontend a DonDominio
 
 Con un cliente FTP como FileZilla, conecta con los datos de DonDominio y abre la carpeta remota `public`. Sube **el contenido** de `frontend/dist`, incluido `index.html`, los recursos y `.htaccess`. No subas la carpeta `dist` como una carpeta adicional.
+
+## 4.1. Publicar el back office
+
+1. Copia `core-admin/.env.production.example` como `core-admin/.env.production`.
+2. Usa como `VITE_API_URL` la URL del backend sin `/api`, por ejemplo `https://ucam-stereo-api.onrender.com`.
+3. Ejecuta `npm ci` y `npm run build` dentro de `core-admin`.
+4. Publica el contenido de `core-admin/dist` en su alojamiento estático.
+5. Añade el origen público del back office a `FRONTEND_ORIGIN` en Render y despliega de nuevo el backend.
 
 ## 5. n8n y los correos
 

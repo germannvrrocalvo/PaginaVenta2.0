@@ -70,6 +70,15 @@ function createActivityRouter(activityService, getUserForToken) {
     }
   })
 
+  router.patch('/Tickets_soporte/:reference/estado', async (req, res) => {
+    try {
+      if (!(await requireAdmin(req, res))) return
+      res.json(await activityService.updateTicketStatus(req.params.reference, req.body?.status))
+    } catch (error) {
+      handleError(res, error)
+    }
+  })
+
   router.delete('/Tickets_soporte', async (req, res) => {
     try {
       if (!(await requireAdmin(req, res))) return

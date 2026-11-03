@@ -82,6 +82,15 @@ function createActivityService({ getUserForToken, now = () => new Date() }) {
     listTickets() {
       return [...Tickets_soporte].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     },
+    updateTicketStatus(reference, status) {
+      if (!['abierta', 'en_curso', 'resuelta', 'cerrada'].includes(status)) {
+        fail(400, 'El estado de la incidencia no es válido.')
+      }
+      const ticket = Tickets_soporte.find((entry) => entry.id === reference)
+      if (!ticket) fail(404, 'Incidencia no encontrada.')
+      ticket.status = status
+      return ticket
+    },
     clearEvents() {
       events.length = 0
     },

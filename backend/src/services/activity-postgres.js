@@ -149,10 +149,12 @@ function createPostgresActivityService(pool, getUserForToken) {
       `SELECT i.referencia, i.fecha_creacion, i.nombre_contacto, i.email_contacto,
               i.numero_pedido_indicado, i.asunto, i.descripcion, i.estado,
               i.agent_incident_id, i.agent_analysis_status, i.agent_analysis_error,
+              ai.priority AS agent_priority, ai.incident_type,
               a.id AS action_id, a.case_type, a.proposed_action, a.justification,
               a.confidence, a.risks, a.review_status, a.reviewed_by,
               a.reviewed_at, a.created_at AS action_created_at
        FROM incidencia i
+       LEFT JOIN incidents ai ON ai.incident_id = i.agent_incident_id
        LEFT JOIN LATERAL (
          SELECT * FROM agent_actions
          WHERE incident_id = i.agent_incident_id
@@ -172,6 +174,8 @@ function createPostgresActivityService(pool, getUserForToken) {
       agentIncidentId: row.agent_incident_id,
       analysisStatus: row.agent_analysis_status,
       analysisError: row.agent_analysis_error,
+      priority: row.agent_priority || 'medium',
+      incidentType: row.incident_type || 'support_request',
       agentAction: row.action_id ? {
         id: String(row.action_id),
         caseType: row.case_type,
@@ -187,11 +191,41 @@ function createPostgresActivityService(pool, getUserForToken) {
     }))
   }
 
+  async function updateTicketStatus(reference, status) {
+    const statusMap = {
+      abierta: 'open',
+      en_curso: 'in_progress',
+      resuelta: 'resolved',
+      cerrada: 'closed',
+    }
+    if (!Object.hasOwn(statusMap, status)) fail(400, 'El estado de la incidencia no es válido.')
+    const { rows } = await pool.query(
+      `WITH updated AS (
+         UPDATE incidencia SET estado = $2
+         WHERE referencia = $1
+         RETURNING agent_incident_id
+       )
+       UPDATE incidents ai
+       SET status = $3, updated_at = now(),
+           resolved_at = CASE WHEN $3 IN ('resolved', 'closed') THEN COALESCE(resolved_at, now()) ELSE NULL END
+       FROM updated u WHERE ai.incident_id = u.agent_incident_id
+       RETURNING ai.incident_id`,
+      [reference, status, statusMap[status]]
+    )
+    if (!rows[0]) {
+      const exists = await pool.query('SELECT 1 FROM incidencia WHERE referencia = $1', [reference])
+      if (!exists.rows[0]) fail(404, 'Incidencia no encontrada.')
+    }
+    const tickets = await listTickets()
+    return tickets.find((ticket) => ticket.id === reference)
+  }
+
   return {
     track,
     createTicket,
     listEvents,
     listTickets,
+    updateTicketStatus,
     async clearEvents() {
       await pool.query('DELETE FROM evento')
     },

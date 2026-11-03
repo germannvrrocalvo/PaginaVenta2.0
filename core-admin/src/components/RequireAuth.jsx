@@ -14,6 +14,10 @@ function RequireAuth({ children }) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
   }
 
+  if (user.role !== 'admin') {
+    return <div className="auth-loading">Esta cuenta no tiene permisos de administración.</div>
+  }
+
   return children
 }
 

@@ -10,6 +10,7 @@ import Incidents from './pages/Incidents'
 import Integrations from './pages/Integrations'
 import Agent from './pages/Agent'
 import PlaceholderPage from './pages/PlaceholderPage'
+import RequireAuth from './components/RequireAuth'
 
 // Sin API de autenticación, el panel no exige login.
 // Cuando haya backend: envolver <AdminLayout /> en <RequireAuth> (components/RequireAuth.jsx).
@@ -22,7 +23,7 @@ function App() {
           <Route path="/login" element={<Login />} />
 
           {/* Panel */}
-          <Route element={<AdminLayout />}>
+          <Route element={<RequireAuth><AdminLayout /></RequireAuth>}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/pedidos" element={<Orders />} />
             <Route path="/incidencias" element={<Incidents />} />
