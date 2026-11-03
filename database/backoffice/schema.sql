@@ -92,6 +92,12 @@ ALTER TABLE incidents ADD COLUMN IF NOT EXISTS analysis_status VARCHAR(20) NOT N
 ALTER TABLE incidents ADD COLUMN IF NOT EXISTS analysis_requested_at TIMESTAMPTZ;
 ALTER TABLE incidents ADD COLUMN IF NOT EXISTS analysis_error TEXT;
 
+-- El número de pedido de una incidencia lo introduce el cliente y puede ser
+-- incorrecto o pertenecer a un pedido que aún no se haya proyectado desde n8n.
+-- Debe conservarse para que el agente pueda investigarlo, sin impedir que la
+-- incidencia llegue al back office.
+ALTER TABLE incidents DROP CONSTRAINT IF EXISTS incidents_order_id_fkey;
+
 UPDATE incidents SET incident_id = gen_random_uuid() WHERE incident_id IS NULL;
 ALTER TABLE incidents ALTER COLUMN incident_id SET DEFAULT gen_random_uuid();
 ALTER TABLE incidents ALTER COLUMN incident_id SET NOT NULL;
