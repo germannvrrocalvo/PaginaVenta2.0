@@ -26,3 +26,28 @@ export const createTicket = (ticket) => request('', {
 
 export const getTickets = () => request()
 export const clearTickets = () => request('', { method: 'DELETE' })
+
+async function requestIncident(reference, operation, options) {
+  const token = getStoredToken()
+  const response = await fetch(
+    `${API_URL}/incidencias/${encodeURIComponent(reference)}/${operation}`,
+    {
+      ...options,
+      headers: {
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    }
+  )
+  const result = await response.json()
+  if (!response.ok) throw new Error(result.error || 'No se pudo gestionar la incidencia.')
+  return result
+}
+
+export const analyzeTicket = (reference) => requestIncident(reference, 'analizar', { method: 'POST' })
+
+export const reviewAgentAction = (reference, decision) => requestIncident(
+  reference,
+  'revision',
+  { method: 'PATCH', body: JSON.stringify({ decision }) }
+)

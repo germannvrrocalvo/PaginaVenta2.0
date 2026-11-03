@@ -61,16 +61,29 @@ function createPostgresActivityService(pool, getUserForToken) {
     try {
       await client.query('BEGIN')
       const reference = `INC-${randomBytes(3).toString('hex').toUpperCase()}`
+      const { rows: agentRows } = await client.query(
+        `INSERT INTO incidents (
+           order_id, customer_id, incident_type, description,
+           priority, status, source_reference
+         ) VALUES ($1, $2, 'support_request', $3, 'medium', 'open', $4)
+         RETURNING incident_id`,
+        [
+          orderId || null,
+          email.trim().toLowerCase(),
+          `${subject.trim()}\n\n${message.trim()}`,
+          reference,
+        ]
+      )
       const { rows } = await client.query(
         `INSERT INTO incidencia (
            referencia, id_pedido, numero_pedido_indicado,
-           nombre_contacto, email_contacto, asunto, descripcion
+           nombre_contacto, email_contacto, asunto, descripcion, agent_incident_id
          ) VALUES (
            $1, (SELECT id_pedido FROM pedido WHERE numero_pedido = $2),
-           $2, $3, $4, $5, $6
+           $2, $3, $4, $5, $6, $7
          )
          RETURNING referencia, fecha_creacion, nombre_contacto, email_contacto,
-                   numero_pedido_indicado, asunto, descripcion, estado`,
+                   numero_pedido_indicado, asunto, descripcion, estado, agent_incident_id`,
         [
           reference,
           orderId || null,
@@ -78,6 +91,7 @@ function createPostgresActivityService(pool, getUserForToken) {
           email.trim().toLowerCase(),
           subject.trim(),
           message.trim(),
+          agentRows[0].incident_id,
         ]
       )
       const ticket = rows[0]
@@ -101,6 +115,9 @@ function createPostgresActivityService(pool, getUserForToken) {
         subject: ticket.asunto,
         message: ticket.descripcion,
         status: ticket.estado,
+        agentIncidentId: ticket.agent_incident_id,
+        analysisStatus: 'idle',
+        agentAction: null,
       }
     } catch (error) {
       await client.query('ROLLBACK')
@@ -129,9 +146,19 @@ function createPostgresActivityService(pool, getUserForToken) {
 
   async function listTickets() {
     const { rows } = await pool.query(
-      `SELECT referencia, fecha_creacion, nombre_contacto, email_contacto,
-              numero_pedido_indicado, asunto, descripcion, estado
-       FROM incidencia ORDER BY fecha_creacion DESC`
+      `SELECT i.referencia, i.fecha_creacion, i.nombre_contacto, i.email_contacto,
+              i.numero_pedido_indicado, i.asunto, i.descripcion, i.estado,
+              i.agent_incident_id, i.agent_analysis_status, i.agent_analysis_error,
+              a.id AS action_id, a.case_type, a.proposed_action, a.justification,
+              a.confidence, a.risks, a.review_status, a.reviewed_by,
+              a.reviewed_at, a.created_at AS action_created_at
+       FROM incidencia i
+       LEFT JOIN LATERAL (
+         SELECT * FROM agent_actions
+         WHERE incident_id = i.agent_incident_id
+         ORDER BY created_at DESC, id DESC LIMIT 1
+       ) a ON true
+       ORDER BY i.fecha_creacion DESC`
     )
     return rows.map((row) => ({
       id: row.referencia,
@@ -142,6 +169,21 @@ function createPostgresActivityService(pool, getUserForToken) {
       subject: row.asunto,
       message: row.descripcion,
       status: row.estado,
+      agentIncidentId: row.agent_incident_id,
+      analysisStatus: row.agent_analysis_status,
+      analysisError: row.agent_analysis_error,
+      agentAction: row.action_id ? {
+        id: String(row.action_id),
+        caseType: row.case_type,
+        proposedAction: row.proposed_action,
+        justification: row.justification,
+        confidence: row.confidence == null ? null : Number(row.confidence),
+        risks: row.risks,
+        reviewStatus: row.review_status,
+        reviewedBy: row.reviewed_by,
+        reviewedAt: row.reviewed_at ? new Date(row.reviewed_at).toISOString() : null,
+        createdAt: new Date(row.action_created_at).toISOString(),
+      } : null,
     }))
   }
 
@@ -154,7 +196,25 @@ function createPostgresActivityService(pool, getUserForToken) {
       await pool.query('DELETE FROM evento')
     },
     async clearTickets() {
-      await pool.query('DELETE FROM incidencia')
+      const client = await pool.connect()
+      try {
+        await client.query('BEGIN')
+        const { rows } = await client.query(
+          'SELECT agent_incident_id FROM incidencia WHERE agent_incident_id IS NOT NULL'
+        )
+        const ids = rows.map((row) => row.agent_incident_id)
+        await client.query('DELETE FROM incidencia')
+        if (ids.length) {
+          await client.query('DELETE FROM agent_actions WHERE incident_id = ANY($1::uuid[])', [ids])
+          await client.query('DELETE FROM incidents WHERE incident_id = ANY($1::uuid[])', [ids])
+        }
+        await client.query('COMMIT')
+      } catch (error) {
+        await client.query('ROLLBACK')
+        throw error
+      } finally {
+        client.release()
+      }
     },
   }
 }

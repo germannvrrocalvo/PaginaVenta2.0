@@ -351,11 +351,23 @@ function createPostgresOrderService(pool, products, getUserForToken, orderEventO
           typeof paypalCaptureId === 'string' ? paypalCaptureId : null,
         ]
       )
-      await client.query(
-        'UPDATE pedido SET estado = $1 WHERE id_pedido = $2',
-        [result === 'approved' ? 'pagado' : 'con_incidencia', order.id_pedido]
+      const nextStatus = result === 'approved' ? 'pagado' : 'con_incidencia'
+      const { rows: statusRows } = await client.query(
+        `UPDATE pedido SET estado = $1 WHERE id_pedido = $2
+         RETURNING fecha_actualizacion`,
+        [nextStatus, order.id_pedido]
       )
+      if (orderEventOutbox) {
+        await orderEventOutbox.enqueueStatusChanged(client, {
+          id,
+          fromStatus: order.estado,
+          toStatus: nextStatus,
+          changedAt: statusRows[0].fecha_actualizacion,
+          source: 'payment',
+        })
+      }
       await client.query('COMMIT')
+      orderEventOutbox?.kick()
       return getById(id)
     } catch (error) {
       await client.query('ROLLBACK')
@@ -564,12 +576,23 @@ function createPostgresOrderService(pool, products, getUserForToken, orderEventO
          ) VALUES ($1, 'paypal_simulado', $2, 'approved', $3, $4, $5)`,
         [order.id_pedido, order.total, reference, paypalOrderId, capture.id]
       )
-      await client.query(
+      const { rows: statusRows } = await client.query(
         `UPDATE pedido SET estado = 'pagado'
-         WHERE id_pedido = $1 AND estado = 'creado'`,
+         WHERE id_pedido = $1 AND estado = 'creado'
+         RETURNING fecha_actualizacion`,
         [order.id_pedido]
       )
+      if (orderEventOutbox) {
+        await orderEventOutbox.enqueueStatusChanged(client, {
+          id,
+          fromStatus: order.estado,
+          toStatus: 'pagado',
+          changedAt: statusRows[0].fecha_actualizacion,
+          source: 'paypal',
+        })
+      }
       await client.query('COMMIT')
+      orderEventOutbox?.kick()
       return { order: await getById(id), alreadyPaid: false, shouldSendReceipt: true }
     } catch (error) {
       try { await client.query('ROLLBACK') } catch (rollbackError) {
@@ -593,12 +616,45 @@ function createPostgresOrderService(pool, products, getUserForToken, orderEventO
 
   async function updateStatus(id, status) {
     if (typeof status !== 'string' || !ORDER_STATUSES.has(status)) fail(400, 'El estado indicado no es válido.')
-    const { rows } = await pool.query(
-      'UPDATE pedido SET estado = $1 WHERE numero_pedido = $2 RETURNING id_pedido',
-      [status, id]
-    )
-    if (!rows[0]) fail(404, 'Pedido no encontrado.')
-    return getById(id)
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const { rows } = await client.query(
+        'SELECT id_pedido, estado FROM pedido WHERE numero_pedido = $1 FOR UPDATE',
+        [id]
+      )
+      const order = rows[0]
+      if (!order) fail(404, 'Pedido no encontrado.')
+      if (order.estado === status) {
+        await client.query('COMMIT')
+        return getById(id)
+      }
+
+      const { rows: statusRows } = await client.query(
+        `UPDATE pedido SET estado = $1 WHERE id_pedido = $2
+         RETURNING fecha_actualizacion`,
+        [status, order.id_pedido]
+      )
+      if (orderEventOutbox) {
+        await orderEventOutbox.enqueueStatusChanged(client, {
+          id,
+          fromStatus: order.estado,
+          toStatus: status,
+          changedAt: statusRows[0].fecha_actualizacion,
+          source: 'admin',
+        })
+      }
+      await client.query('COMMIT')
+      orderEventOutbox?.kick()
+      return getById(id)
+    } catch (error) {
+      try { await client.query('ROLLBACK') } catch (rollbackError) {
+        console.error('No se pudo revertir el cambio de estado:', rollbackError)
+      }
+      throw error
+    } finally {
+      client.release()
+    }
   }
 
   return {

@@ -1,3 +1,5 @@
+const { randomUUID } = require('node:crypto')
+
 const DEFAULT_TIMEOUT_MS = 5_000
 const DEFAULT_POLL_INTERVAL_MS = 10_000
 const DEFAULT_MAX_ATTEMPTS = 8
@@ -35,6 +37,29 @@ function buildOrderCreatedEvent({
       currency: 'EUR',
       status: 'pending',
       created_at: timestamp,
+    },
+  }
+}
+
+function buildOrderStatusChangedEvent({
+  id,
+  fromStatus,
+  toStatus,
+  changedAt,
+  source,
+  changeId = randomUUID(),
+}) {
+  const timestamp = new Date(changedAt).toISOString()
+  return {
+    event_id: `order.status_changed:${id}:${changeId}`,
+    event_type: 'order.status_changed',
+    timestamp,
+    order: {
+      id,
+      previous_status: fromStatus,
+      status: toStatus,
+      changed_at: timestamp,
+      change_source: source,
     },
   }
 }
@@ -88,8 +113,7 @@ function createOrderEventOutbox(pool, {
   let running = false
   let kickScheduled = false
 
-  async function enqueue(client, order) {
-    const event = buildOrderCreatedEvent(order)
+  async function enqueueEvent(client, event) {
     await client.query(
       `INSERT INTO integration_outbox (event_id, event_type, payload)
        VALUES ($1, $2, $3::jsonb)
@@ -97,6 +121,14 @@ function createOrderEventOutbox(pool, {
       [event.event_id, event.event_type, JSON.stringify(event)]
     )
     return event
+  }
+
+  async function enqueue(client, order) {
+    return enqueueEvent(client, buildOrderCreatedEvent(order))
+  }
+
+  async function enqueueStatusChanged(client, change) {
+    return enqueueEvent(client, buildOrderStatusChangedEvent(change))
   }
 
   async function claimBatch() {
@@ -220,6 +252,7 @@ function createOrderEventOutbox(pool, {
 
   return {
     enqueue,
+    enqueueStatusChanged,
     processBatch,
     kick,
     start,
@@ -230,6 +263,7 @@ function createOrderEventOutbox(pool, {
 
 module.exports = {
   buildOrderCreatedEvent,
+  buildOrderStatusChangedEvent,
   createOrderEventOutbox,
   retryDelayMs,
 }

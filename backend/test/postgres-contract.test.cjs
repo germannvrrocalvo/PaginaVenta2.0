@@ -8,6 +8,8 @@ const structure = readFileSync(join(__dirname, '../../database/Estructura.sql'),
 const migration = readFileSync(join(__dirname, '../../database/migrations/007_paypal.sql'), 'utf8')
 const sandboxMigration = readFileSync(join(__dirname, '../../database/migrations/008_paypal_sandbox.sql'), 'utf8')
 const outboxMigration = readFileSync(join(__dirname, '../../database/migrations/009_order_created_outbox.sql'), 'utf8')
+const statusOutboxMigration = readFileSync(join(__dirname, '../../database/migrations/010_order_status_changed.sql'), 'utf8')
+const incidentAgentMigration = readFileSync(join(__dirname, '../../database/migrations/011_incident_agent.sql'), 'utf8')
 
 test('el esquema limita método/referencia de pago y persiste las referencias PayPal', () => {
   assert.match(structure, /metodo\s+VARCHAR\(20\)\s+NOT NULL DEFAULT 'paypal_simulado' CHECK \(metodo IN \('paypal_simulado'\)\)/)
@@ -57,4 +59,21 @@ test('el esquema incluye una outbox idempotente con reintentos para order.create
     assert.match(sql, /'dead_letter'/)
     assert.match(sql, /payload\s+JSONB\s+NOT NULL/)
   }
+})
+
+test('la outbox admite eventos de sincronización order.status_changed', () => {
+  assert.match(structure, /'order\.created','order\.status_changed'/)
+  assert.match(statusOutboxMigration, /'order\.created', 'order\.status_changed'/)
+  assert.match(statusOutboxMigration, /DROP CONSTRAINT IF EXISTS integration_outbox_event_type_check/)
+})
+
+test('el agente enlaza incidencias de tienda y conserva revisión humana', () => {
+  for (const sql of [structure, incidentAgentMigration]) {
+    assert.match(sql, /CREATE TABLE(?: IF NOT EXISTS)? incidents/)
+    assert.match(sql, /CREATE TABLE(?: IF NOT EXISTS)? agent_actions/)
+    assert.match(sql, /agent_incident_id/)
+    assert.match(sql, /review_status/)
+  }
+  assert.match(incidentAgentMigration, /pending_review/)
+  assert.match(incidentAgentMigration, /ON CONFLICT \(source_reference\)/)
 })

@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getOrders, updateOrderStatus, ORDER_STATUS } from '../lib/orders.js'
-import { getTickets, clearTickets } from '../lib/support.js'
+import { getTickets, clearTickets, analyzeTicket, reviewAgentAction } from '../lib/support.js'
 import { getEvents, clearEvents, downloadEvents, EVENT_TYPES } from '../lib/events.js'
 import { eur, fechaHora } from '../lib/format.js'
 
@@ -15,6 +15,8 @@ export default function Admin() {
   const [statusError, setStatusError] = useState('')
   const [filter, setFilter] = useState('todos')
   const [open, setOpen] = useState(null)
+  const [incidentBusy, setIncidentBusy] = useState(null)
+  const [incidentNotice, setIncidentNotice] = useState({ type: '', text: '' })
 
   useEffect(() => {
     if (user?.role !== 'admin') return undefined
@@ -78,6 +80,42 @@ export default function Admin() {
       }))
     } catch (error) {
       setStatusError(error.message)
+    }
+  }
+
+  const runIncidentAgent = async (reference) => {
+    setIncidentBusy(reference)
+    setIncidentNotice({ type: '', text: '' })
+    try {
+      const result = await analyzeTicket(reference)
+      setIncidentNotice({
+        type: 'ok',
+        text: result.status === 'already_pending'
+          ? 'Esta incidencia ya tenía una propuesta pendiente de revisión.'
+          : 'El agente ha creado una propuesta. Revísala antes de aprobarla.',
+      })
+      refreshAdminData()
+    } catch (error) {
+      setIncidentNotice({ type: 'error', text: error.message })
+    } finally {
+      setIncidentBusy(null)
+    }
+  }
+
+  const reviewProposal = async (reference, decision) => {
+    setIncidentBusy(`${reference}:${decision}`)
+    setIncidentNotice({ type: '', text: '' })
+    try {
+      await reviewAgentAction(reference, decision)
+      setIncidentNotice({
+        type: 'ok',
+        text: decision === 'approved' ? 'Propuesta aprobada.' : 'Propuesta rechazada.',
+      })
+      refreshAdminData()
+    } catch (error) {
+      setIncidentNotice({ type: 'error', text: error.message })
+    } finally {
+      setIncidentBusy(null)
     }
   }
 
@@ -188,22 +226,71 @@ export default function Admin() {
         )}
 
         {tab === 'incidencias' && (
-          tickets.length === 0 ? <div className="empty"><h3>Sin incidencias</h3><p>Las solicitudes de soporte aparecerán aquí.</p></div> : (
+          <>
+          {incidentNotice.text && (
+            <p className={`alert${incidentNotice.type === 'ok' ? ' ok' : ''}`} role="status">
+              {incidentNotice.text}
+            </p>
+          )}
+          {tickets.length === 0 ? <div className="empty"><h3>Sin incidencias</h3><p>Las solicitudes de soporte aparecerán aquí.</p></div> : (
             <div className="table-wrap">
               <table className="table">
-                <thead><tr><th>Código</th><th>Fecha</th><th>Contacto</th><th>Pedido</th><th>Asunto</th><th>Mensaje</th></tr></thead>
+                <thead><tr><th>Código</th><th>Fecha</th><th>Contacto</th><th>Pedido</th><th>Asunto</th><th>Estado</th><th>Agente IA</th></tr></thead>
                 <tbody>
                   {tickets.map((t) => (
-                    <tr key={t.id}>
-                      <td><strong>{t.id}</strong></td><td>{fechaHora(t.createdAt)}</td>
-                      <td>{t.name}<br /><span className="muted">{t.email}</span></td>
-                      <td>{t.orderId ?? '-'}</td><td>{t.subject}</td><td>{t.message}</td>
-                    </tr>
+                    <Fragment key={t.id}>
+                      <tr>
+                        <td><strong>{t.id}</strong></td><td>{fechaHora(t.createdAt)}</td>
+                        <td>{t.name}<br /><span className="muted">{t.email}</span></td>
+                        <td>{t.orderId ?? '-'}</td><td>{t.subject}<br /><span className="muted">{t.message}</span></td>
+                        <td><span className={`status status-${t.status}`}>{t.status}</span></td>
+                        <td>
+                          <button
+                            className="btn btn-dark btn-sm"
+                            disabled={incidentBusy === t.id || t.analysisStatus === 'running' || t.agentAction?.reviewStatus === 'pending_review'}
+                            onClick={() => runIncidentAgent(t.id)}
+                          >
+                            {incidentBusy === t.id || t.analysisStatus === 'running'
+                              ? 'Analizando…'
+                              : t.agentAction ? 'Analizar de nuevo' : 'Analizar con IA'}
+                          </button>
+                        </td>
+                      </tr>
+                      {(t.agentAction || t.analysisError) && (
+                        <tr className="detail">
+                          <td colSpan="7">
+                            {t.analysisError && <p className="alert">Último intento: {t.analysisError}</p>}
+                            {t.agentAction && (
+                              <div className="agent-proposal">
+                                <div className="agent-proposal-head">
+                                  <div>
+                                    <strong>Propuesta del agente</strong>
+                                    <span className={`review-badge review-${t.agentAction.reviewStatus}`}>{t.agentAction.reviewStatus}</span>
+                                  </div>
+                                  {t.agentAction.confidence != null && <span>Confianza: {Math.round(t.agentAction.confidence * 100)}%</span>}
+                                </div>
+                                <p>{t.agentAction.proposedAction}</p>
+                                <p><strong>Justificación:</strong> {t.agentAction.justification}</p>
+                                {t.agentAction.risks && <p><strong>Riesgos:</strong> {t.agentAction.risks}</p>}
+                                {t.agentAction.reviewStatus === 'pending_review' && (
+                                  <div className="chips">
+                                    <button className="btn btn-dark btn-sm" disabled={incidentBusy?.startsWith(`${t.id}:`)} onClick={() => reviewProposal(t.id, 'approved')}>Aprobar</button>
+                                    <button className="btn btn-outline btn-sm" disabled={incidentBusy?.startsWith(`${t.id}:`)} onClick={() => reviewProposal(t.id, 'rejected')}>Rechazar</button>
+                                  </div>
+                                )}
+                                {t.agentAction.reviewedBy && <small className="muted">Revisada por {t.agentAction.reviewedBy}{t.agentAction.reviewedAt ? ` · ${fechaHora(t.agentAction.reviewedAt)}` : ''}</small>}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
             </div>
-          )
+          )}
+          </>
         )}
       </div>
     </section>

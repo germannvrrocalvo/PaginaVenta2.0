@@ -42,6 +42,14 @@ services:
         value: "10000"
       - key: N8N_ORDER_WEBHOOK_MAX_ATTEMPTS
         value: "8"
+      - key: N8N_INCIDENT_AGENT_WEBHOOK_URL
+        sync: false
+      - key: N8N_INCIDENT_AGENT_WEBHOOK_HEADER
+        sync: false
+      - key: N8N_INCIDENT_AGENT_WEBHOOK_SECRET
+        sync: false
+      - key: N8N_INCIDENT_AGENT_TIMEOUT_MS
+        value: "30000"
       - key: TRACKING_LINK_SECRET
         generateValue: true
 

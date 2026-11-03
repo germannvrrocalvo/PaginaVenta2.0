@@ -27,11 +27,17 @@ async function main() {
             console.log("La base de datos ya contiene datos; no se modifica.");
         }
 
-        console.log("Aplicando la migración idempotente de eventos order.created...");
-        await pool.query(fs.readFileSync(
-            path.join(databaseDir, "migrations", "009_order_created_outbox.sql"),
-            "utf8"
-        ));
+        console.log("Aplicando las migraciones idempotentes de integración de pedidos...");
+        for (const migration of [
+            "009_order_created_outbox.sql",
+            "010_order_status_changed.sql",
+            "011_incident_agent.sql",
+        ]) {
+            await pool.query(fs.readFileSync(
+                path.join(databaseDir, "migrations", migration),
+                "utf8"
+            ));
+        }
     } finally {
         await pool.end();
     }

@@ -264,6 +264,16 @@ input[aria-invalid='true'], textarea[aria-invalid='true'] { border-color: #b3261
 .status-enviado { background: #dfeaf7; color: #1d4a80; }
 .status-cancelado { background: #ececec; color: #666; }
 .status-con_incidencia { background: #fdecea; color: #8c1d18; }
+.status-abierta { background: #fdf0d5; color: #7a5210; }
+.status-en_curso { background: #dfeaf7; color: #1d4a80; }
+.status-resuelta, .status-cerrada { background: #e2f1e6; color: #1f5a2d; }
+.agent-proposal { display: grid; gap: 10px; padding: 8px; }
+.agent-proposal-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.agent-proposal-head > div { display: flex; align-items: center; gap: 10px; }
+.review-badge { display: inline-flex; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.review-pending_review { background: #fdf0d5; color: #7a5210; }
+.review-approved { background: #e2f1e6; color: #1f5a2d; }
+.review-rejected { background: #fdecea; color: #8c1d18; }
 
 /* ============ FOOTER / AYUDA ============ */
 .footer { background: var(--ink); color: var(--nav); padding-top: 64px; }

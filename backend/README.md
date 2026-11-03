@@ -23,8 +23,8 @@ For an existing database created from the previous schema, apply the numbered
 scripts `database/migrations/007_paypal.sql` and
 `database/migrations/008_paypal_sandbox.sql` instead of rerunning the
 destructive schema setup.
-The Render startup command applies the idempotent
-`database/migrations/009_order_created_outbox.sql` automatically.
+The Render startup command applies the idempotent migrations 009, 010 and 011
+automatically.
 
 The backend seeds/updates the two demo accounts at startup. Registered users,
 hashed sessions, orders, payment references, variant stock, support tickets and
@@ -44,3 +44,10 @@ in a PostgreSQL outbox in the same transaction as the order, then delivered
 asynchronously with timeout, idempotency and retries. An n8n outage never rolls
 back a completed purchase. See `docs/N8N_PEDIDOS.md` for the exact Render and
 n8n setup and the safe failure test.
+
+The incident back-office calls the n8n AI agent only through the backend.
+Configure `N8N_INCIDENT_AGENT_WEBHOOK_URL`,
+`N8N_INCIDENT_AGENT_WEBHOOK_HEADER` and
+`N8N_INCIDENT_AGENT_WEBHOOK_SECRET` in Render, never in the frontend. The
+proposal is stored as `pending_review` and cannot approve itself. See
+`docs/N8N_AGENTE_INCIDENCIAS.md`.

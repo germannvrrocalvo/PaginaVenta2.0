@@ -2,6 +2,7 @@ const assert = require('node:assert/strict')
 const { test } = require('node:test')
 const {
   buildOrderCreatedEvent,
+  buildOrderStatusChangedEvent,
   createOrderEventOutbox,
   retryDelayMs,
 } = require('../src/services/order-event-outbox')
@@ -39,6 +40,28 @@ test('construye el contrato order.created aceptado por n8n', () => {
   })
 })
 
+test('construye el contrato order.status_changed para sincronizar el back-office', () => {
+  assert.deepEqual(buildOrderStatusChangedEvent({
+    id: 'UC-2026-01004',
+    fromStatus: 'creado',
+    toStatus: 'pagado',
+    changedAt: '2026-11-01T10:05:00.000Z',
+    source: 'paypal',
+    changeId: 'cambio-prueba',
+  }), {
+    event_id: 'order.status_changed:UC-2026-01004:cambio-prueba',
+    event_type: 'order.status_changed',
+    timestamp: '2026-11-01T10:05:00.000Z',
+    order: {
+      id: 'UC-2026-01004',
+      previous_status: 'creado',
+      status: 'pagado',
+      changed_at: '2026-11-01T10:05:00.000Z',
+      change_source: 'paypal',
+    },
+  })
+})
+
 test('encola el evento dentro de la transacción del pedido', async () => {
   const calls = []
   const client = { query: async (...args) => calls.push(args) }
@@ -53,6 +76,28 @@ test('encola el evento dentro de la transacción del pedido', async () => {
   assert.match(calls[0][0], /INSERT INTO integration_outbox/)
   assert.equal(calls[0][1][0], 'order.created:UC-2026-01004')
   assert.equal(JSON.parse(calls[0][1][2]).event_type, 'order.created')
+})
+
+test('encola el cambio de estado en la misma outbox fiable', async () => {
+  const calls = []
+  const client = { query: async (...args) => calls.push(args) }
+  const outbox = createOrderEventOutbox({ query: async () => ({ rows: [] }) }, {
+    webhookUrl: '',
+    webhookSecret: '',
+    logger: { info() {}, warn() {}, error() {} },
+  })
+
+  await outbox.enqueueStatusChanged(client, {
+    id: 'UC-2026-01004',
+    fromStatus: 'creado',
+    toStatus: 'pagado',
+    changedAt: '2026-11-01T10:05:00.000Z',
+    source: 'paypal',
+    changeId: 'cambio-prueba',
+  })
+
+  assert.equal(calls[0][1][1], 'order.status_changed')
+  assert.equal(JSON.parse(calls[0][1][2]).order.status, 'pagado')
 })
 
 test('envía con secreto e idempotencia y registra la entrega', async () => {

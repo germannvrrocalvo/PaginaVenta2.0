@@ -5,6 +5,7 @@ const { createProductsRouter } = require("./routes/productos.routes");
 const { createAuthRouter } = require("./routes/auth.routes");
 const { createOrdersRouter } = require("./routes/pedidos.routes");
 const { createActivityRouter } = require("./routes/activity.routes");
+const { createIncidentsRouter } = require("./routes/incidents.routes");
 const { createPaypalRouter } = require("./routes/pagos.routes");
 const { createOrderService } = require("./services/pedido");
 const { createActivityService } = require("./services/activity");
@@ -16,6 +17,8 @@ const { createPostgresProductService } = require("./services/products-postgres")
 const { createPaypalService } = require("./services/paypal");
 const { createReceiptEmailService } = require("./services/receipt-email");
 const { createOrderEventOutbox } = require("./services/order-event-outbox");
+const { createIncidentAgentClient } = require("./services/incident-agent-client");
+const { createPostgresIncidentService } = require("./services/incident-postgres");
 const productos = require("./data/productos");
 
 function createApp(authService = null, {
@@ -28,6 +31,7 @@ function createApp(authService = null, {
     let orderService;
     let activityService;
     let orderEventOutbox = null;
+    let incidentService = null;
     let ready = Promise.resolve();
 
     if (authService) {
@@ -54,6 +58,7 @@ function createApp(authService = null, {
             pool,
             (token) => authService.getUserForToken(token)
         );
+        incidentService = createPostgresIncidentService(pool, createIncidentAgentClient());
         ready = Promise.all([
             authService.initialize(),
             pool.query("SELECT codigo FROM producto WHERE activo"),
@@ -93,6 +98,12 @@ function createApp(authService = null, {
     app.use("/api/pedidos", createOrdersRouter(orderService));
     app.use("/api/pagos", createPaypalRouter({ orderService, paypalService, receiptEmailService }));
     app.use("/api", createActivityRouter(activityService, (token) => authService.getUserForToken(token)));
+    if (incidentService) {
+        app.use("/api/incidencias", createIncidentsRouter(
+            incidentService,
+            (token) => authService.getUserForToken(token)
+        ));
+    }
     app.locals.ready = ready;
     app.locals.closeDatabase = async () => {
         orderEventOutbox?.stop();
