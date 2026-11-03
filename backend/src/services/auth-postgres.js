@@ -111,7 +111,7 @@ function createPostgresAuthService(pool) {
       const configuredAdmin = seedUsers.find((user) => user.role === 'admin')
       if (configuredAdmin?.email !== DEMO_USERS[1].email) {
         await pool.query(
-          `UPDATE cliente SET registrado = FALSE
+          `UPDATE cliente SET registrado = FALSE, rol = 'cliente'
            WHERE lower(email) = lower($1) AND rol = 'admin'`,
           [DEMO_USERS[1].email]
         )
