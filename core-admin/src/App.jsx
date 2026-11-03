@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
 import { AuthProvider } from './context/AuthContext'
-import RequireAuth from './components/RequireAuth'
 import AdminLayout from './layouts/AdminLayout'
 
 import Login from './pages/Login'
@@ -12,22 +11,18 @@ import Integrations from './pages/Integrations'
 import Agent from './pages/Agent'
 import PlaceholderPage from './pages/PlaceholderPage'
 
+// Sin API de autenticación, el panel no exige login.
+// Cuando haya backend: envolver <AdminLayout /> en <RequireAuth> (components/RequireAuth.jsx).
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* PÚBLICA */}
+          {/* Pantalla de entrada (lista para conectar a un sistema de autenticación) */}
           <Route path="/login" element={<Login />} />
 
-          {/* PRIVADAS (requieren sesión) */}
-          <Route
-            element={
-              <RequireAuth>
-                <AdminLayout />
-              </RequireAuth>
-            }
-          >
+          {/* Panel */}
+          <Route element={<AdminLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/pedidos" element={<Orders />} />
             <Route path="/incidencias" element={<Incidents />} />
