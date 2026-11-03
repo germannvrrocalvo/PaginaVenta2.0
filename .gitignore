@@ -6,3 +6,4 @@ frontend/.env
 frontend/.env.local
 frontend/.env.production
 !frontend/.env.production.example
+core-admin/api/.env
