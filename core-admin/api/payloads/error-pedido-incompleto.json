@@ -1,0 +1,13 @@
+{
+  "event_id": "order.created:UC-2026-09002",
+  "event_type": "order.created",
+  "timestamp": "2026-11-02T12:00:00.000Z",
+  "order": {
+    "id": "PEDIDO-MAL",
+    "customer_email": "esto-no-es-un-email",
+    "items": [],
+    "total": -5,
+    "currency": "EUR",
+    "status": "pending"
+  }
+}
