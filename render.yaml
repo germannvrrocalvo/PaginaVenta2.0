@@ -49,7 +49,7 @@ services:
       - key: N8N_INCIDENT_AGENT_WEBHOOK_SECRET
         sync: false
       - key: N8N_INCIDENT_AGENT_TIMEOUT_MS
-        value: "30000"
+        value: "60000"
       - key: BO_ADMIN_EMAIL
         sync: false
       - key: BO_ADMIN_PASSWORD

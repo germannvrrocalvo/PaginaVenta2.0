@@ -31,7 +31,7 @@ URL o clave real en el repositorio.
   la credencial Header Auth de n8n.
 - `N8N_INCIDENT_AGENT_WEBHOOK_SECRET`: el mismo valor secreto de esa
   credencial.
-- `N8N_INCIDENT_AGENT_TIMEOUT_MS`: `30000`.
+- `N8N_INCIDENT_AGENT_TIMEOUT_MS`: `60000`.
 
 Guarda las tres primeras como secretos en Render. No uses una URL de prueba ni
 incluyas el secreto en capturas o en la entrega.

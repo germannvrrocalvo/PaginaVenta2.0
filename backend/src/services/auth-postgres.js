@@ -21,8 +21,8 @@ function usersToSeed(env = process.env) {
   if (!email || !password) {
     throw new Error('BO_ADMIN_EMAIL y BO_ADMIN_PASSWORD deben configurarse juntas.')
   }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 12) {
-    throw new Error('La cuenta de CoreAdmin necesita un correo válido y una contraseña de al menos 12 caracteres.')
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 8) {
+    throw new Error('La cuenta de CoreAdmin necesita un correo válido y una contraseña de al menos 8 caracteres.')
   }
   return [
     DEMO_USERS[0],

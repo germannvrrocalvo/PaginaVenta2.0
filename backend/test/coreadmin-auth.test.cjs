@@ -22,5 +22,5 @@ test('rechaza una configuración parcial o una contraseña corta', () => {
   assert.throws(() => usersToSeed({
     BO_ADMIN_EMAIL: 'coreadmin@ucam.test',
     BO_ADMIN_PASSWORD: 'corta',
-  }), /al menos 12 caracteres/)
+  }), /al menos 8 caracteres/)
 })
