@@ -14,6 +14,22 @@ function fail(status, message) {
   throw error
 }
 
+function usersToSeed(env = process.env) {
+  const email = String(env.BO_ADMIN_EMAIL || '').trim().toLowerCase()
+  const password = String(env.BO_ADMIN_PASSWORD || '')
+  if (!email && !password) return DEMO_USERS
+  if (!email || !password) {
+    throw new Error('BO_ADMIN_EMAIL y BO_ADMIN_PASSWORD deben configurarse juntas.')
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 12) {
+    throw new Error('La cuenta de CoreAdmin necesita un correo válido y una contraseña de al menos 12 caracteres.')
+  }
+  return [
+    DEMO_USERS[0],
+    { email, password, name: 'Administrador CoreAdmin', role: 'admin' },
+  ]
+}
+
 function tokenHash(token) {
   return createHash('sha256').update(token).digest('hex')
 }
@@ -71,7 +87,8 @@ function createPostgresAuthService(pool) {
 
   return {
     async initialize() {
-      for (const demo of DEMO_USERS) {
+      const seedUsers = usersToSeed()
+      for (const demo of seedUsers) {
         const passwordHash = await makePasswordHash(demo.password)
         const existing = await pool.query(
           'SELECT id_cliente FROM cliente WHERE lower(email) = lower($1) AND registrado',
@@ -90,6 +107,14 @@ function createPostgresAuthService(pool) {
             [demo.name, demo.email, passwordHash, demo.role]
           )
         }
+      }
+      const configuredAdmin = seedUsers.find((user) => user.role === 'admin')
+      if (configuredAdmin?.email !== DEMO_USERS[1].email) {
+        await pool.query(
+          `UPDATE cliente SET registrado = FALSE
+           WHERE lower(email) = lower($1) AND rol = 'admin'`,
+          [DEMO_USERS[1].email]
+        )
       }
     },
 
@@ -155,4 +180,4 @@ function createPostgresAuthService(pool) {
   }
 }
 
-module.exports = { createPostgresAuthService }
+module.exports = { createPostgresAuthService, usersToSeed }
