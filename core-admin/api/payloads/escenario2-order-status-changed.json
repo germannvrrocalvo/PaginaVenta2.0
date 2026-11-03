@@ -1,0 +1,10 @@
+{
+  "event_id": "order.status_changed:UC-2026-09001:pagado",
+  "event_type": "order.status_changed",
+  "timestamp": "2026-11-02T10:05:00.000Z",
+  "order": {
+    "id": "UC-2026-09001",
+    "status": "pagado"
+  },
+  "reason": "Pago confirmado en PayPal Sandbox"
+}
