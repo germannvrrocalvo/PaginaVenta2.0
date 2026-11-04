@@ -22,6 +22,7 @@ const { createPostgresIncidentService } = require("./services/incident-postgres"
 const { createBackofficeAuthService } = require("./services/backoffice-auth-postgres");
 const { createBackofficeActivityService } = require("./services/backoffice-activity-postgres");
 const { createBackofficeIncidentSync } = require("./services/backoffice-incident-sync");
+const { createBackofficeOrderReconciliation } = require("./services/backoffice-order-reconciliation");
 const { createAgentActionOutbox } = require("./services/agent-action-outbox");
 const { createBackofficeAuthRouter } = require("./routes/backoffice-auth.routes");
 const { createBackofficeRouter } = require("./routes/backoffice.routes");
@@ -42,6 +43,7 @@ function createApp(authService = null, {
     let backofficeActivityService = null;
     let orderEventOutbox = null;
     let backofficeIncidentSync = null;
+    let backofficeOrderReconciliation = null;
     let agentActionOutbox = null;
     let incidentService = null;
     let ready = Promise.resolve();
@@ -65,6 +67,7 @@ function createApp(authService = null, {
         backofficeAuthService = createBackofficeAuthService(backofficePool);
         backofficeActivityService = createBackofficeActivityService(backofficePool);
         backofficeIncidentSync = createBackofficeIncidentSync(pool, backofficeActivityService);
+        backofficeOrderReconciliation = createBackofficeOrderReconciliation(pool, backofficePool);
         agentActionOutbox = createAgentActionOutbox(backofficePool);
         productService = createPostgresProductService(pool, productos);
         orderEventOutbox = createOrderEventOutbox(pool);
@@ -91,6 +94,7 @@ function createApp(authService = null, {
             pool.query("SELECT codigo FROM producto WHERE activo"),
             pool.query("SELECT paypal_order_id, paypal_capture_id FROM pago LIMIT 0"),
             backofficePool.query("SELECT incident_id FROM incidents LIMIT 0"),
+            backofficePool.query("SELECT order_id FROM orders LIMIT 0"),
         ]).then(([, , result]) => {
             const activeCodes = new Set(result.rows.map((row) => row.codigo));
             const missingProducts = productos.filter((product) => !activeCodes.has(product.id));
@@ -99,6 +103,7 @@ function createApp(authService = null, {
             }
             orderEventOutbox.start();
             backofficeIncidentSync.start();
+            backofficeOrderReconciliation.start();
             agentActionOutbox.start();
         });
     }
@@ -149,6 +154,7 @@ function createApp(authService = null, {
     app.locals.closeDatabase = async () => {
         orderEventOutbox?.stop();
         backofficeIncidentSync?.stop();
+        backofficeOrderReconciliation?.stop();
         agentActionOutbox?.stop();
         await pool?.end();
         await backofficePool?.end();

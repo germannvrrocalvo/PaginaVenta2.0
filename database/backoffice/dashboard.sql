@@ -45,11 +45,15 @@ CREATE OR REPLACE VIEW dashboard.kpis AS
 WITH p AS (
     SELECT
         count(*) AS pedidos_totales,
-        COALESCE(sum(total_amount), 0) AS importe_total,
-        round(avg(total_amount), 2) AS ticket_medio,
+        count(*) FILTER (WHERE payment_status = 'approved') AS pedidos_pagados,
+        COALESCE(sum(total_amount) FILTER (WHERE payment_status = 'approved'), 0)
+            AS importe_total,
+        round(avg(total_amount) FILTER (WHERE payment_status = 'approved'), 2)
+            AS ticket_medio,
         round(avg(EXTRACT(EPOCH FROM (integrated_at - created_at)))::numeric, 1)
             AS segundos_medios_integracion
     FROM public.orders
+    WHERE source_system = 'store'
 ),
 e AS (
     SELECT
@@ -104,7 +108,8 @@ SELECT
     round(
         100.0 * a.propuestas_aprobadas / NULLIF(a.propuestas_agente, 0),
         1
-    ) AS tasa_aprobacion_agente_pct
+    ) AS tasa_aprobacion_agente_pct,
+    p.pedidos_pagados
 FROM p, e, i, a;
 
 -- 2. Pedidos e importe por día, últimos 30 días (días sin pedidos = 0)
@@ -120,10 +125,12 @@ WITH dias AS (
 SELECT
     d.fecha,
     count(o.id) AS pedidos,
-    COALESCE(sum(o.total_amount), 0) AS importe
+    COALESCE(sum(o.total_amount) FILTER (WHERE o.payment_status = 'approved'), 0)
+        AS importe
 FROM dias d
 LEFT JOIN public.orders o
     ON (o.created_at AT TIME ZONE 'Europe/Madrid')::date = d.fecha
+   AND o.source_system = 'store'
 GROUP BY d.fecha
 ORDER BY d.fecha;
 
@@ -134,18 +141,22 @@ SELECT
     count(*) AS pedidos,
     COALESCE(sum(total_amount), 0) AS importe
 FROM public.orders
+WHERE source_system = 'store'
 GROUP BY 1
 ORDER BY pedidos DESC;
 
 -- 4. Productos más vendidos
 CREATE OR REPLACE VIEW dashboard.productos_mas_vendidos AS
 SELECT
-    COALESCE(product_name, product_id) AS producto,
-    sum(quantity) AS unidades,
-    COALESCE(sum(line_total), 0) AS importe,
-    count(DISTINCT order_id) AS pedidos
-FROM public.order_items
-GROUP BY 1
+    COALESCE(i.product_name, i.source_product_id, i.product_id) AS producto,
+    sum(i.quantity) AS unidades,
+    COALESCE(sum(i.line_total), 0) AS importe,
+    count(DISTINCT i.order_id) AS pedidos
+FROM public.order_items i
+JOIN public.orders o ON o.order_id = i.order_id
+WHERE o.source_system = 'store'
+  AND o.payment_status = 'approved'
+GROUP BY COALESCE(i.product_name, i.source_product_id, i.product_id)
 ORDER BY unidades DESC, importe DESC;
 
 -- 5. Eventos de integración por día y resultado (correcto/duplicado/fallido)

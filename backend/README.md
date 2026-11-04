@@ -48,6 +48,13 @@ asynchronously with timeout, idempotency and retries. An n8n outage never rolls
 back a completed purchase. See `docs/N8N_PEDIDOS.md` for the exact Render and
 n8n setup and the safe failure test.
 
+As a reliability layer, the backend also reconciles the complete store order
+history into `BACKOFFICE_DATABASE_URL` at startup and every
+`BACKOFFICE_ORDER_SYNC_INTERVAL_MS` milliseconds (30 seconds by default). This
+idempotent process copies order lines, financial totals, payment state and
+shipping data, repairs gaps left by a temporary n8n failure, and never deletes
+orders from the store.
+
 The incident back-office calls the n8n AI agent only through the backend. n8n,
 CoreAdmin, incidents and `agent_actions` all use `BACKOFFICE_DATABASE_URL`; no
 third database is created for the agent.

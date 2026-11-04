@@ -21,6 +21,7 @@ Render necesita leer el proyecto desde GitHub, GitLab o Bitbucket. Antes de subi
    - `DATABASE_URL`: conexión de la tienda (`lucky-haze`). No se sustituye por
      la conexión del back office.
    - `BACKOFFICE_DATABASE_URL`: conexión completa de `sie-backoffice-db`.
+   - `BACKOFFICE_ORDER_SYNC_INTERVAL_MS`: intervalo de reconciliación de pedidos entre la tienda y el back-office (por defecto, `30000`). El proceso hace un backfill al arrancar y después repara posibles eventos perdidos sin borrar pedidos.
      Se configura como secreto y nunca se añade al repositorio.
    - `FRONTEND_URL`: dirección pública final, por ejemplo `https://tudominio.es`.
    - `FRONTEND_ORIGIN`: orígenes permitidos separados por comas. Incluye la tienda y la URL pública de `core-admin`, ambas sin barra final.
