@@ -9,7 +9,7 @@ import Orders from './pages/Orders'
 import Incidents from './pages/Incidents'
 import Integrations from './pages/Integrations'
 import Agent from './pages/Agent'
-import PlaceholderPage from './pages/PlaceholderPage'
+import Logs from './pages/Logs'
 import RequireAuth from './components/RequireAuth'
 
 // Sin API de autenticación, el panel no exige login.
@@ -29,15 +29,7 @@ function App() {
             <Route path="/incidencias" element={<Incidents />} />
             <Route path="/integraciones" element={<Integrations />} />
             <Route path="/agente-ia" element={<Agent />} />
-            <Route
-              path="/logs"
-              element={
-                <PlaceholderPage
-                  title="Logs"
-                  description="Consulta el historial de ejecuciones y eventos del sistema."
-                />
-              }
-            />
+            <Route path="/logs" element={<Logs />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
