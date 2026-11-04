@@ -48,6 +48,12 @@ services:
         value: "10000"
       - key: N8N_ORDER_WEBHOOK_MAX_ATTEMPTS
         value: "8"
+      - key: ORDER_STATUS_AUTOMATION_ENABLED
+        value: "true"
+      - key: ORDER_STATUS_AUTOMATION_INTERVAL_MS
+        value: "10800000"
+      - key: ORDER_STATUS_AUTOMATION_POLL_INTERVAL_MS
+        value: "60000"
       - key: BACKOFFICE_ORDER_SYNC_INTERVAL_MS
         value: "30000"
       - key: N8N_INCIDENT_AGENT_WEBHOOK_URL

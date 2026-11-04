@@ -17,6 +17,7 @@ const { createPostgresProductService } = require("./services/products-postgres")
 const { createPaypalService } = require("./services/paypal");
 const { createReceiptEmailService } = require("./services/receipt-email");
 const { createOrderEventOutbox } = require("./services/order-event-outbox");
+const { createOrderStatusAutomation } = require("./services/order-status-automation");
 const { createIncidentAgentClient } = require("./services/incident-agent-client");
 const { createPostgresIncidentService } = require("./services/incident-postgres");
 const { createBackofficeAuthService } = require("./services/backoffice-auth-postgres");
@@ -42,6 +43,7 @@ function createApp(authService = null, {
     let backofficeAuthService = null;
     let backofficeActivityService = null;
     let orderEventOutbox = null;
+    let orderStatusAutomation = null;
     let backofficeIncidentSync = null;
     let backofficeOrderReconciliation = null;
     let agentActionOutbox = null;
@@ -71,6 +73,7 @@ function createApp(authService = null, {
         agentActionOutbox = createAgentActionOutbox(backofficePool);
         productService = createPostgresProductService(pool, productos);
         orderEventOutbox = createOrderEventOutbox(pool);
+        orderStatusAutomation = createOrderStatusAutomation(pool, orderEventOutbox);
         orderService = createPostgresOrderService(
             pool,
             productos,
@@ -102,6 +105,7 @@ function createApp(authService = null, {
                 throw new Error(`Faltan productos del catálogo en PostgreSQL: ${missingProducts.map((product) => product.id).join(", ")}. Ejecuta database/Datos.sql.`);
             }
             orderEventOutbox.start();
+            orderStatusAutomation.start();
             backofficeIncidentSync.start();
             backofficeOrderReconciliation.start();
             agentActionOutbox.start();
@@ -153,6 +157,7 @@ function createApp(authService = null, {
     app.locals.ready = ready;
     app.locals.closeDatabase = async () => {
         orderEventOutbox?.stop();
+        orderStatusAutomation?.stop();
         backofficeIncidentSync?.stop();
         backofficeOrderReconciliation?.stop();
         agentActionOutbox?.stop();

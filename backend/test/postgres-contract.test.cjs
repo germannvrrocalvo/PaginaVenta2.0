@@ -12,6 +12,7 @@ const statusOutboxMigration = readFileSync(join(__dirname, '../../database/migra
 const supportOutboxMigration = readFileSync(join(__dirname, '../../database/migrations/013_support_requested.sql'), 'utf8')
 const incidentAgentMigration = readFileSync(join(__dirname, '../../database/migrations/011_incident_agent.sql'), 'utf8')
 const separateBackofficeMigration = readFileSync(join(__dirname, '../../database/migrations/012_separate_backoffice.sql'), 'utf8')
+const shippingAutomationMigration = readFileSync(join(__dirname, '../../database/migrations/014_order_shipping_automation.sql'), 'utf8')
 const backofficeSchema = readFileSync(join(__dirname, '../../database/backoffice/schema.sql'), 'utf8')
 
 test('el esquema limita método/referencia de pago y persiste las referencias PayPal', () => {
@@ -93,4 +94,10 @@ test('el back office tiene esquema, autenticación y reintentos independientes',
   assert.match(backofficeSchema, /source_reference/)
   assert.match(separateBackofficeMigration, /backoffice_sync_status/)
   assert.match(separateBackofficeMigration, /backoffice_next_attempt_at/)
+})
+
+test('la automatización guarda su próxima ejecución para no enviar dos pedidos en el mismo ciclo', () => {
+  assert.match(shippingAutomationMigration, /CREATE TABLE IF NOT EXISTS automation_job_state/)
+  assert.match(shippingAutomationMigration, /job_name\s+VARCHAR\(100\) PRIMARY KEY/)
+  assert.match(shippingAutomationMigration, /next_run_at\s+TIMESTAMPTZ NOT NULL/)
 })
