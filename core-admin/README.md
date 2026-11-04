@@ -1,5 +1,24 @@
 # CoreAdmin conectado
 
+## Ejecutar desde el ZIP de GitHub
+
+Instala Node.js y, desde la carpeta `core-admin`, ejecuta:
+
+```powershell
+npm ci
+npm run dev
+```
+
+Abre la dirección que indique Vite (normalmente `http://localhost:5173/`).
+El servidor de desarrollo ya conecta `/api` con
+`https://ucam-stereo-api.onrender.com`; no hace falta crear un `.env` ni
+arrancar el backend local. Inicia sesión con el correo y la contraseña de
+administrador configurados en Render. Comparte esas credenciales por un canal
+privado, nunca en GitHub.
+
+Si el puerto 5173 está ocupado, cierra el proceso que lo usa antes de arrancar
+CoreAdmin para que la dirección sea la esperada.
+
 El panel usa la misma API Node.js de la tienda. En producción crea
 `.env.production` a partir de `.env.production.example` y configura
 `VITE_API_URL` con la URL pública del backend, sin `/api` al final.

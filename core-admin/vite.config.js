@@ -6,7 +6,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': 'http://localhost:4000',
+      '/api': {
+        target: 'https://ucam-stereo-api.onrender.com',
+        changeOrigin: true,
+      },
     },
   },
 })
