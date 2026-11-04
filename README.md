@@ -99,8 +99,7 @@ Utiliza React, Vite, JavaScript, CSS y React Router DOM.
 | Agente IA | Visualización y supervisión de propuestas de acciones |
 | Logs | Registro y consulta de operaciones |
 
-Dashboard, Incidencias y Agente IA trabajan con datos reales del back-office. Pedidos, Integraciones y Logs siguen usando datos de ejemplo (`src/data/mockData.js`) y están pendientes de conectar.
-
+Todas las secciones de CoreAdmin (Dashboard, Pedidos, Incidencias, Integraciones, Agente IA y Logs) trabajan con datos reales del back-office.
 ---
 
 ## 4. Requisitos e instalaciones
