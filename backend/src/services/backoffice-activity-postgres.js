@@ -43,6 +43,10 @@ function mapTicket(row) {
       reviewStatus: row.review_status,
       reviewedBy: row.reviewed_by,
       reviewedAt: row.reviewed_at ? new Date(row.reviewed_at).toISOString() : null,
+      executionStatus: row.execution_status,
+      executedAt: row.executed_at ? new Date(row.executed_at).toISOString() : null,
+      executionError: row.execution_error,
+      telegramMessageId: row.telegram_message_id,
       createdAt: new Date(row.action_created_at).toISOString(),
     } : null,
   }
@@ -55,7 +59,9 @@ function createBackofficeActivityService(pool) {
            i.priority, i.status, i.created_at, i.analysis_status, i.analysis_error,
            a.id AS action_id, a.case_type, a.proposed_action, a.justification,
            a.confidence, a.risks, a.review_status, a.reviewed_by,
-           a.reviewed_at, a.created_at AS action_created_at
+           a.reviewed_at, a.execution_status, a.executed_at,
+           a.execution_error, a.telegram_message_id,
+           a.created_at AS action_created_at
     FROM incidents i
     LEFT JOIN LATERAL (
       SELECT * FROM agent_actions

@@ -9,6 +9,7 @@ const migration = readFileSync(join(__dirname, '../../database/migrations/007_pa
 const sandboxMigration = readFileSync(join(__dirname, '../../database/migrations/008_paypal_sandbox.sql'), 'utf8')
 const outboxMigration = readFileSync(join(__dirname, '../../database/migrations/009_order_created_outbox.sql'), 'utf8')
 const statusOutboxMigration = readFileSync(join(__dirname, '../../database/migrations/010_order_status_changed.sql'), 'utf8')
+const supportOutboxMigration = readFileSync(join(__dirname, '../../database/migrations/013_support_requested.sql'), 'utf8')
 const incidentAgentMigration = readFileSync(join(__dirname, '../../database/migrations/011_incident_agent.sql'), 'utf8')
 const separateBackofficeMigration = readFileSync(join(__dirname, '../../database/migrations/012_separate_backoffice.sql'), 'utf8')
 const backofficeSchema = readFileSync(join(__dirname, '../../database/backoffice/schema.sql'), 'utf8')
@@ -67,6 +68,11 @@ test('la outbox admite eventos de sincronización order.status_changed', () => {
   assert.match(structure, /'order\.created','order\.status_changed'/)
   assert.match(statusOutboxMigration, /'order\.created', 'order\.status_changed'/)
   assert.match(statusOutboxMigration, /DROP CONSTRAINT IF EXISTS integration_outbox_event_type_check/)
+})
+
+test('la outbox admite el escenario support.requested', () => {
+  assert.match(supportOutboxMigration, /support\.requested/)
+  assert.match(supportOutboxMigration, /integration_outbox_event_type_check/)
 })
 
 test('el agente enlaza incidencias de tienda y conserva revisión humana', () => {

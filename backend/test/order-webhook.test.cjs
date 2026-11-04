@@ -3,6 +3,7 @@ const { test } = require('node:test')
 const {
   buildOrderCreatedEvent,
   buildOrderStatusChangedEvent,
+  buildSupportRequestedEvent,
   createOrderEventOutbox,
   retryDelayMs,
 } = require('../src/services/order-event-outbox')
@@ -40,6 +41,36 @@ test('construye el contrato order.created aceptado por n8n', () => {
   })
 })
 
+test('construye support.requested para crear la incidencia mediante n8n', () => {
+  assert.deepEqual(buildSupportRequestedEvent({
+    incidentId: '49a972fb-755f-4a89-8230-df611f971b28',
+    reference: 'INC-3DFA48',
+    name: 'German',
+    email: 'Cliente@UCAM.test',
+    orderId: 'UC-2026-01022',
+    subject: 'Mi pedido no aparece',
+    message: 'Necesito ayuda con el pedido.',
+    createdAt: '2026-11-03T19:28:00.000Z',
+    telegramChatId: '123456',
+  }), {
+    event_id: 'support.requested:INC-3DFA48',
+    event_type: 'support.requested',
+    timestamp: '2026-11-03T19:28:00.000Z',
+    incident: {
+      id: '49a972fb-755f-4a89-8230-df611f971b28',
+      reference: 'INC-3DFA48',
+      order_id: 'UC-2026-01022',
+      customer_name: 'German',
+      customer_email: 'cliente@ucam.test',
+      subject: 'Mi pedido no aparece',
+      description: 'Necesito ayuda con el pedido.',
+      priority: 'medium',
+      status: 'open',
+      telegram_chat_id: '123456',
+    },
+  })
+})
+
 test('construye el contrato order.status_changed para sincronizar el back-office', () => {
   assert.deepEqual(buildOrderStatusChangedEvent({
     id: 'UC-2026-01004',
@@ -60,6 +91,41 @@ test('construye el contrato order.status_changed para sincronizar el back-office
       change_source: 'paypal',
     },
   })
+})
+
+test('envía order.status_changed al webhook específico sin afectar order.created', async () => {
+  const calls = []
+  const pool = {
+    query: async (sql) => {
+      if (sql.includes('WITH due AS')) {
+        return {
+          rows: [{
+            id: 22,
+            event_id: 'order.status_changed:UC-2026-01004:cambio-prueba',
+            event_type: 'order.status_changed',
+            payload: { event_type: 'order.status_changed' },
+            attempts: 1,
+          }],
+        }
+      }
+      return { rows: [] }
+    },
+  }
+  const outbox = createOrderEventOutbox(pool, {
+    webhookUrl: 'https://n8n.example.test/webhook/orders',
+    statusWebhookUrl: 'https://n8n.example.test/webhook/order-status',
+    webhookSecret: 'test-only-secret',
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options })
+      return { ok: true, status: 200 }
+    },
+    logger: { info() {}, error() {}, warn() {} },
+  })
+
+  await outbox.processBatch()
+
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].url, 'https://n8n.example.test/webhook/order-status')
 })
 
 test('encola el evento dentro de la transacción del pedido', async () => {

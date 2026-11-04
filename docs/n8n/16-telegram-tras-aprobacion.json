@@ -1,0 +1,183 @@
+{
+  "name": "SIE - Telegram tras aprobación humana",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sie-agent-action-approved",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "84455393-3b3f-49c1-befd-168254518deb",
+      "name": "Webhook - Acción aprobada",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [0, 0],
+      "webhookId": "sie-agent-action-approved",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "lYiPRNNm7HNxTk6F",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "let body = $json.body ?? $json;\nif (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = null; } }\nconst missing = [];\nconst invalid = [];\nconst blank = (v) => v === undefined || v === null || (typeof v === 'string' && v.trim() === '');\nif (!body || typeof body !== 'object' || Array.isArray(body)) {\n  return { valid: false, http_status: 400, response_body: { success: false, error_type: 'invalid_structure', message: 'El cuerpo debe ser un objeto JSON' } };\n}\nconst incident = body.incident || {};\nconst action = body.action || {};\nfor (const [path, value] of [['event_id', body.event_id], ['incident.id', incident.id], ['incident.telegram_chat_id', incident.telegram_chat_id], ['action.id', action.id], ['action.proposed_action', action.proposed_action]]) {\n  if (blank(value)) missing.push(path);\n}\nif (body.event_type !== 'agent.action.approved') invalid.push({ field: 'event_type', message: 'Debe ser agent.action.approved' });\nif (!blank(incident.id) && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(incident.id))) invalid.push({ field: 'incident.id', message: 'UUID no válido' });\nif (!blank(action.id) && !/^\\d+$/.test(String(action.id))) invalid.push({ field: 'action.id', message: 'Identificador no válido' });\nconst valid = missing.length === 0 && invalid.length === 0;\nreturn {\n  valid, missing_fields: missing, invalid_fields: invalid,\n  event_id: body.event_id || null, incident_id: incident.id || null, action_id: action.id || null,\n  reference: incident.reference || null, order_id: incident.order_id || null,\n  customer_name: incident.customer_name || null, subject: incident.subject || 'Incidencia de soporte',\n  telegram_chat_id: incident.telegram_chat_id || null, proposed_action: action.proposed_action || null,\n  reviewed_by: action.reviewed_by || null, reviewed_at: action.reviewed_at || null,\n  http_status: valid ? 200 : 400,\n  response_body: valid ? null : { success: false, error_type: missing.length ? 'missing_fields' : 'invalid_values', missing_fields: missing, invalid_fields: invalid, message: 'Evento de aprobación inválido' }\n};"
+      },
+      "id": "d02a95d0-66d5-4738-a05a-859d82d547a6",
+      "name": "Validar aprobación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [{ "leftValue": "={{ $json.valid }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true", "singleValue": true } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6536080c-0554-458a-bf4c-36fe7afad854",
+      "name": "¿Evento válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH target AS (\n  SELECT a.id, a.review_status, a.execution_status, i.source_reference\n  FROM public.agent_actions a\n  JOIN public.incidents i ON i.incident_id = a.incident_id\n  WHERE a.id = $1::bigint AND a.incident_id = $2::uuid\n  LIMIT 1\n)\nSELECT\n  EXISTS (SELECT 1 FROM target) AS action_exists,\n  (SELECT review_status FROM target) AS review_status,\n  (SELECT execution_status FROM target) AS execution_status,\n  (SELECT source_reference FROM target) AS source_reference;",
+        "options": { "queryReplacement": "={{ [ $json.action_id, $json.incident_id ] }}" }
+      },
+      "id": "72dfe919-291f-45b8-b467-dc9b10ca590e",
+      "name": "Neon - Confirmar aprobación",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [720, -100],
+      "credentials": {
+        "postgres": {
+          "id": "jxtpqbugQsb2jtvj",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const event = $('Validar aprobación').first().json;\nconst already = $json.action_exists === true && $json.execution_status === 'executed';\nconst should_send = $json.action_exists === true && $json.review_status === 'approved' && !already;\nreturn {\n  ...event, should_send,\n  http_status: should_send || already ? 200 : 409,\n  response_body: should_send ? null : {\n    success: already, event_id: event.event_id, action_id: event.action_id,\n    integration_status: already ? 'already_processed' : 'rejected',\n    message: already ? 'La notificación ya fue enviada' : 'La acción no existe o no está aprobada'\n  }\n};"
+      },
+      "id": "cb4ecff4-727b-4e24-b091-ee7c67cbc2b9",
+      "name": "Decidir envío",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, -100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [{ "leftValue": "={{ $json.should_send }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true", "singleValue": true } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "62d3fedc-a28d-4309-b47c-3065a53e083a",
+      "name": "¿Enviar Telegram?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1200, -100]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegram_chat_id }}",
+        "text": "={{ '✅ Propuesta aprobada por revisión humana\\n\\nIncidencia: ' + ($json.reference || $json.incident_id) + '\\nPedido: ' + ($json.order_id || 'sin pedido asociado') + '\\nAsunto: ' + $json.subject + '\\n\\nAcción propuesta:\\n' + $json.proposed_action + '\\n\\nRevisada por: ' + ($json.reviewed_by || 'administración') + '\\n\\nPrototipo académico SIE.' }}",
+        "additionalFields": { "appendAttribution": false }
+      },
+      "id": "03cd2765-21be-4afd-ab3e-6cb776b25089",
+      "name": "Telegram - Enviar notificación",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1440, -220],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.agent_actions\nSET execution_status = 'executed',\n    executed_at = now(),\n    execution_error = NULL,\n    telegram_message_id = $2\nWHERE id = $1::bigint AND review_status = 'approved'\nRETURNING id AS action_id, execution_status;",
+        "options": { "queryReplacement": "={{ [ $('Validar aprobación').first().json.action_id, String($json.message_id || '') ] }}" }
+      },
+      "id": "eb38bcb2-e0ab-4696-ae74-683991450ce1",
+      "name": "Neon - Marcar ejecutada",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [1680, -280],
+      "credentials": {
+        "postgres": {
+          "id": "jxtpqbugQsb2jtvj",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.agent_actions\nSET execution_status = 'retry', execution_error = $2\nWHERE id = $1::bigint\nRETURNING id AS action_id, execution_status, execution_error;",
+        "options": { "queryReplacement": "={{ [ $('Validar aprobación').first().json.action_id, String($json.error?.message || $json.message || 'Telegram no respondió') ] }}" }
+      },
+      "id": "4fc586fb-404e-49f8-bafd-d9be86f739c5",
+      "name": "Neon - Registrar fallo Telegram",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [1680, -100],
+      "credentials": {
+        "postgres": {
+          "id": "jxtpqbugQsb2jtvj",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const event = $('Validar aprobación').first().json;\nconst failed = $json.execution_status === 'retry';\nreturn {\n  http_status: failed ? 503 : 200,\n  response_body: {\n    success: !failed, event_id: event.event_id, action_id: event.action_id,\n    incident_id: event.incident_id, integration_status: failed ? 'retry' : 'completed',\n    message: failed ? 'Telegram falló; el backend reintentará' : 'Notificación enviada y registrada'\n  }\n};"
+      },
+      "id": "c312956e-692e-4ad2-9ef2-e89edffdb7f5",
+      "name": "Preparar resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, -220]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.response_body) }}",
+        "options": { "responseCode": "={{ $json.http_status }}" }
+      },
+      "id": "84b7bfae-a24e-44dd-a38f-e05141af85a7",
+      "name": "Responder al backend",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [2160, 0]
+    }
+  ],
+  "connections": {
+    "Webhook - Acción aprobada": { "main": [[{ "node": "Validar aprobación", "type": "main", "index": 0 }]] },
+    "Validar aprobación": { "main": [[{ "node": "¿Evento válido?", "type": "main", "index": 0 }]] },
+    "¿Evento válido?": { "main": [[{ "node": "Neon - Confirmar aprobación", "type": "main", "index": 0 }], [{ "node": "Responder al backend", "type": "main", "index": 0 }]] },
+    "Neon - Confirmar aprobación": { "main": [[{ "node": "Decidir envío", "type": "main", "index": 0 }]] },
+    "Decidir envío": { "main": [[{ "node": "¿Enviar Telegram?", "type": "main", "index": 0 }]] },
+    "¿Enviar Telegram?": { "main": [[{ "node": "Telegram - Enviar notificación", "type": "main", "index": 0 }], [{ "node": "Responder al backend", "type": "main", "index": 0 }]] },
+    "Telegram - Enviar notificación": { "main": [[{ "node": "Neon - Marcar ejecutada", "type": "main", "index": 0 }], [{ "node": "Neon - Registrar fallo Telegram", "type": "main", "index": 0 }]] },
+    "Neon - Marcar ejecutada": { "main": [[{ "node": "Preparar resultado", "type": "main", "index": 0 }]] },
+    "Neon - Registrar fallo Telegram": { "main": [[{ "node": "Preparar resultado", "type": "main", "index": 0 }]] },
+    "Preparar resultado": { "main": [[{ "node": "Responder al backend", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false,
+  "tags": []
+}

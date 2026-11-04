@@ -4,6 +4,8 @@ function fail(status, message) {
   throw error
 }
 
+const { buildApprovedActionEvent } = require('./agent-action-outbox')
+
 function mapAction(row) {
   if (!row?.action_id) return null
   return {
@@ -16,11 +18,15 @@ function mapAction(row) {
     reviewStatus: row.review_status,
     reviewedBy: row.reviewed_by,
     reviewedAt: row.reviewed_at ? new Date(row.reviewed_at).toISOString() : null,
+    executionStatus: row.execution_status,
+    executedAt: row.executed_at ? new Date(row.executed_at).toISOString() : null,
+    executionError: row.execution_error,
+    telegramMessageId: row.telegram_message_id,
     createdAt: new Date(row.action_created_at).toISOString(),
   }
 }
 
-function createPostgresIncidentService(pool, agentClient) {
+function createPostgresIncidentService(pool, agentClient, actionOutbox = null) {
   async function findTicket(reference) {
     const { rows } = await pool.query(
       `SELECT i.source_reference AS referencia,
@@ -28,7 +34,9 @@ function createPostgresIncidentService(pool, agentClient) {
               i.analysis_status AS agent_analysis_status,
               a.id AS action_id, a.case_type, a.proposed_action, a.justification,
               a.confidence, a.risks, a.review_status, a.reviewed_by,
-              a.reviewed_at, a.created_at AS action_created_at
+              a.reviewed_at, a.execution_status, a.executed_at,
+              a.execution_error, a.telegram_message_id,
+              a.created_at AS action_created_at
        FROM incidents i
        LEFT JOIN LATERAL (
          SELECT * FROM agent_actions
@@ -90,24 +98,63 @@ function createPostgresIncidentService(pool, agentClient) {
     if (!['approved', 'rejected'].includes(decision)) {
       fail(400, 'La revisión debe ser approved o rejected.')
     }
-    const { rows } = await pool.query(
-      `WITH target AS (
-         SELECT a.id
-         FROM incidents i
-         JOIN agent_actions a ON a.incident_id = i.incident_id
-         WHERE i.source_reference = $1 AND a.review_status = 'pending_review'
-         ORDER BY a.created_at DESC, a.id DESC LIMIT 1
-       )
-       UPDATE agent_actions a
-       SET review_status = $2, reviewed_by = $3, reviewed_at = now()
-       FROM target WHERE a.id = target.id
-       RETURNING a.id AS action_id, a.case_type, a.proposed_action, a.justification,
-                 a.confidence, a.risks, a.review_status, a.reviewed_by,
-                 a.reviewed_at, a.created_at AS action_created_at`,
-      [reference, decision, reviewedBy]
-    )
-    if (!rows[0]) fail(404, 'No hay ninguna propuesta pendiente para esta incidencia.')
-    return mapAction(rows[0])
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const { rows } = await client.query(
+        `WITH target AS (
+           SELECT a.id, i.incident_id, i.source_reference, i.order_id,
+                  i.customer_name, i.subject, i.telegram_chat_id
+           FROM incidents i
+           JOIN agent_actions a ON a.incident_id = i.incident_id
+           WHERE i.source_reference = $1 AND a.review_status = 'pending_review'
+           ORDER BY a.created_at DESC, a.id DESC LIMIT 1
+           FOR UPDATE OF a
+         )
+         UPDATE agent_actions a
+         SET review_status = $2, reviewed_by = $3, reviewed_at = now(),
+             execution_status = CASE
+               WHEN $2 = 'approved' THEN 'pending'
+               ELSE 'not_applicable'
+             END,
+             execution_error = NULL
+         FROM target WHERE a.id = target.id
+         RETURNING a.id AS action_id, a.case_type, a.proposed_action, a.justification,
+                   a.confidence, a.risks, a.review_status, a.reviewed_by,
+                   a.reviewed_at, a.execution_status, a.executed_at,
+                   a.execution_error, a.telegram_message_id,
+                   a.created_at AS action_created_at,
+                   target.incident_id, target.source_reference, target.order_id,
+                   target.customer_name, target.subject, target.telegram_chat_id`,
+        [reference, decision, reviewedBy]
+      )
+      const row = rows[0]
+      if (!row) fail(404, 'No hay ninguna propuesta pendiente para esta incidencia.')
+
+      if (decision === 'approved' && actionOutbox) {
+        await actionOutbox.enqueue(client, buildApprovedActionEvent({
+          actionId: row.action_id,
+          incidentId: row.incident_id,
+          reference: row.source_reference,
+          orderId: row.order_id,
+          customerName: row.customer_name,
+          subject: row.subject,
+          telegramChatId: row.telegram_chat_id,
+          proposedAction: row.proposed_action,
+          justification: row.justification,
+          reviewedBy: row.reviewed_by,
+          reviewedAt: row.reviewed_at,
+        }))
+      }
+      await client.query('COMMIT')
+      if (decision === 'approved') actionOutbox?.kick()
+      return mapAction(row)
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
   }
 
   return { analyze, review }

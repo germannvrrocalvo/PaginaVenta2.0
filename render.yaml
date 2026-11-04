@@ -16,6 +16,8 @@ services:
         fromDatabase:
           name: ucam-stereo-db
           property: connectionString
+      - key: BACKOFFICE_DATABASE_URL
+        sync: false
       - key: PGSSL
         value: "false"
       - key: AUTO_INIT_DB
@@ -34,6 +36,10 @@ services:
         sync: false
       - key: N8N_ORDER_WEBHOOK_URL
         sync: false
+      - key: N8N_ORDER_STATUS_WEBHOOK_URL
+        sync: false
+      - key: N8N_SUPPORT_WEBHOOK_URL
+        sync: false
       - key: N8N_ORDER_WEBHOOK_SECRET
         sync: false
       - key: N8N_ORDER_WEBHOOK_TIMEOUT_MS
@@ -50,6 +56,20 @@ services:
         sync: false
       - key: N8N_INCIDENT_AGENT_TIMEOUT_MS
         value: "60000"
+      - key: N8N_INCIDENT_ACTION_WEBHOOK_URL
+        sync: false
+      - key: N8N_INCIDENT_ACTION_WEBHOOK_HEADER
+        sync: false
+      - key: N8N_INCIDENT_ACTION_WEBHOOK_SECRET
+        sync: false
+      - key: N8N_INCIDENT_ACTION_TIMEOUT_MS
+        value: "15000"
+      - key: N8N_INCIDENT_ACTION_POLL_INTERVAL_MS
+        value: "10000"
+      - key: N8N_INCIDENT_ACTION_MAX_ATTEMPTS
+        value: "8"
+      - key: TELEGRAM_TEST_CHAT_ID
+        sync: false
       - key: BO_ADMIN_EMAIL
         sync: false
       - key: BO_ADMIN_PASSWORD

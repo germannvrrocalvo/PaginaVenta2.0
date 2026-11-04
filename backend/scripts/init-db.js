@@ -33,6 +33,7 @@ async function main() {
             "010_order_status_changed.sql",
             "011_incident_agent.sql",
             "012_separate_backoffice.sql",
+            "013_support_requested.sql",
         ]) {
             await pool.query(fs.readFileSync(
                 path.join(databaseDir, "migrations", migration),

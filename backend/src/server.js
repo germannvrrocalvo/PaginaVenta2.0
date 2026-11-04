@@ -22,6 +22,7 @@ const { createPostgresIncidentService } = require("./services/incident-postgres"
 const { createBackofficeAuthService } = require("./services/backoffice-auth-postgres");
 const { createBackofficeActivityService } = require("./services/backoffice-activity-postgres");
 const { createBackofficeIncidentSync } = require("./services/backoffice-incident-sync");
+const { createAgentActionOutbox } = require("./services/agent-action-outbox");
 const { createBackofficeAuthRouter } = require("./routes/backoffice-auth.routes");
 const { createBackofficeRouter } = require("./routes/backoffice.routes");
 const productos = require("./data/productos");
@@ -41,6 +42,7 @@ function createApp(authService = null, {
     let backofficeActivityService = null;
     let orderEventOutbox = null;
     let backofficeIncidentSync = null;
+    let agentActionOutbox = null;
     let incidentService = null;
     let ready = Promise.resolve();
 
@@ -63,6 +65,7 @@ function createApp(authService = null, {
         backofficeAuthService = createBackofficeAuthService(backofficePool);
         backofficeActivityService = createBackofficeActivityService(backofficePool);
         backofficeIncidentSync = createBackofficeIncidentSync(pool, backofficeActivityService);
+        agentActionOutbox = createAgentActionOutbox(backofficePool);
         productService = createPostgresProductService(pool, productos);
         orderEventOutbox = createOrderEventOutbox(pool);
         orderService = createPostgresOrderService(
@@ -74,9 +77,14 @@ function createApp(authService = null, {
         activityService = createPostgresActivityService(
             pool,
             (token) => authService.getUserForToken(token),
-            backofficeIncidentSync
+            backofficeIncidentSync,
+            orderEventOutbox
         );
-        incidentService = createPostgresIncidentService(backofficePool, createIncidentAgentClient());
+        incidentService = createPostgresIncidentService(
+            backofficePool,
+            createIncidentAgentClient(),
+            agentActionOutbox
+        );
         ready = Promise.all([
             authService.initialize(),
             backofficeAuthService.initialize(),
@@ -91,6 +99,7 @@ function createApp(authService = null, {
             }
             orderEventOutbox.start();
             backofficeIncidentSync.start();
+            agentActionOutbox.start();
         });
     }
     const configuredOrigins = (process.env.FRONTEND_ORIGIN || "")
@@ -140,6 +149,7 @@ function createApp(authService = null, {
     app.locals.closeDatabase = async () => {
         orderEventOutbox?.stop();
         backofficeIncidentSync?.stop();
+        agentActionOutbox?.stop();
         await pool?.end();
         await backofficePool?.end();
     };

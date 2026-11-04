@@ -64,6 +64,37 @@ function buildOrderStatusChangedEvent({
   }
 }
 
+function buildSupportRequestedEvent({
+  incidentId,
+  reference,
+  name,
+  email,
+  orderId,
+  subject,
+  message,
+  createdAt,
+  telegramChatId,
+}) {
+  const timestamp = new Date(createdAt).toISOString()
+  return {
+    event_id: `support.requested:${reference}`,
+    event_type: 'support.requested',
+    timestamp,
+    incident: {
+      id: String(incidentId),
+      reference: String(reference),
+      order_id: orderId || null,
+      customer_name: String(name),
+      customer_email: String(email).trim().toLowerCase(),
+      subject: String(subject),
+      description: String(message),
+      priority: 'medium',
+      status: 'open',
+      telegram_chat_id: telegramChatId || null,
+    },
+  }
+}
+
 function configurationError(webhookUrl, webhookSecret, nodeEnv) {
   if (!webhookUrl && !webhookSecret) {
     return 'faltan N8N_ORDER_WEBHOOK_URL y N8N_ORDER_WEBHOOK_SECRET'
@@ -90,6 +121,8 @@ function retryDelayMs(attempts) {
 function createOrderEventOutbox(pool, {
   fetchImpl = globalThis.fetch,
   webhookUrl = process.env.N8N_ORDER_WEBHOOK_URL,
+  statusWebhookUrl = process.env.N8N_ORDER_STATUS_WEBHOOK_URL || webhookUrl,
+  supportWebhookUrl = process.env.N8N_SUPPORT_WEBHOOK_URL || webhookUrl,
   webhookSecret = process.env.N8N_ORDER_WEBHOOK_SECRET,
   timeoutMs = positiveInteger(process.env.N8N_ORDER_WEBHOOK_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, {
     min: 100,
@@ -131,6 +164,10 @@ function createOrderEventOutbox(pool, {
     return enqueueEvent(client, buildOrderStatusChangedEvent(change))
   }
 
+  async function enqueueSupportRequested(client, incident) {
+    return enqueueEvent(client, buildSupportRequestedEvent(incident))
+  }
+
   async function claimBatch() {
     const { rows } = await pool.query(
       `WITH due AS (
@@ -162,9 +199,22 @@ function createOrderEventOutbox(pool, {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), timeoutMs)
     let httpStatus = null
+    const targetWebhookUrl = record.event_type === 'order.status_changed'
+      ? statusWebhookUrl
+      : record.event_type === 'support.requested'
+        ? supportWebhookUrl
+        : webhookUrl
 
     try {
-      const response = await fetchImpl(webhookUrl, {
+      if (!targetWebhookUrl) {
+        throw new Error(
+          record.event_type === 'order.status_changed'
+            ? 'falta N8N_ORDER_STATUS_WEBHOOK_URL (o N8N_ORDER_WEBHOOK_URL como respaldo)'
+            : 'falta N8N_ORDER_WEBHOOK_URL'
+        )
+      }
+
+      const response = await fetchImpl(targetWebhookUrl, {
         method: 'POST',
         redirect: 'error',
         headers: {
@@ -253,6 +303,7 @@ function createOrderEventOutbox(pool, {
   return {
     enqueue,
     enqueueStatusChanged,
+    enqueueSupportRequested,
     processBatch,
     kick,
     start,
@@ -264,6 +315,7 @@ function createOrderEventOutbox(pool, {
 module.exports = {
   buildOrderCreatedEvent,
   buildOrderStatusChangedEvent,
+  buildSupportRequestedEvent,
   createOrderEventOutbox,
   retryDelayMs,
 }

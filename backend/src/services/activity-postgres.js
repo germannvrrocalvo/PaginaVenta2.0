@@ -7,7 +7,7 @@ function fail(status, message) {
   throw error
 }
 
-function createPostgresActivityService(pool, getUserForToken, incidentSync = null) {
+function createPostgresActivityService(pool, getUserForToken, incidentSync = null, integrationOutbox = null) {
   async function track(input, token) {
     const { type, payload = {}, sessionId } = input ?? {}
     if (!EVENT_TYPES.has(type)) fail(400, 'El tipo de evento no es válido.')
@@ -105,7 +105,21 @@ function createPostgresActivityService(pool, getUserForToken, incidentSync = nul
           subject: ticket.asunto,
         }), ticket.numero_pedido_indicado]
       )
+      if (integrationOutbox) {
+        await integrationOutbox.enqueueSupportRequested(client, {
+          incidentId: ticket.agent_incident_id,
+          reference: ticket.referencia,
+          name: ticket.nombre_contacto,
+          email: ticket.email_contacto,
+          orderId: ticket.numero_pedido_indicado,
+          subject: ticket.asunto,
+          message: ticket.descripcion,
+          createdAt: ticket.fecha_creacion,
+          telegramChatId: process.env.TELEGRAM_TEST_CHAT_ID || null,
+        })
+      }
       await client.query('COMMIT')
+      integrationOutbox?.kick()
       if (incidentSync) {
         try {
           await incidentSync.syncReference(ticket.referencia)

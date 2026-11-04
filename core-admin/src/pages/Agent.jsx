@@ -3,6 +3,14 @@ import { Bot, BrainCircuit, CheckCircle2, Clock, AlertTriangle, Check, X, Messag
 import { listIncidents, reviewProposal } from "../lib/backoffice";
 
 const statusLabel = { pending_review: "Pendiente", approved: "Aprobada", rejected: "Rechazada", executed: "Ejecutada" };
+const executionLabel = {
+  not_requested: "No solicitada",
+  not_applicable: "No aplicable",
+  pending: "Pendiente de Telegram",
+  retry: "Reintentando Telegram",
+  executed: "Enviada por Telegram",
+  failed: "Telegram falló",
+};
 
 function Agent() {
   const [tickets, setTickets] = useState([]);
@@ -81,6 +89,14 @@ function Agent() {
                     <button className="proposal-approve" disabled={busy === proposal.id} onClick={() => updateProposal(proposal, "approved")}><Check size={15} />Aprobar</button>
                   </div> : <span className="proposal-finished">Decisión registrada{proposal.reviewedBy ? ` por ${proposal.reviewedBy}` : ""}</span>}
                 </div>
+                {proposal.reviewStatus !== "pending_review" && <div className="proposal-detail">
+                  <strong>Ejecución</strong>
+                  <span>{executionLabel[proposal.executionStatus] || proposal.executionStatus || "No solicitada"}</span>
+                </div>}
+                {proposal.executionError && <div className="proposal-detail">
+                  <strong>Último error de Telegram</strong>
+                  <span>{proposal.executionError}</span>
+                </div>}
               </div>
             </article>;
           })}

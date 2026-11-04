@@ -1,0 +1,189 @@
+{
+  "name": "SIE - Incidencia y Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sie-support-requested",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "7e60d7d7-1067-4a54-81f8-fb9db4acd4bf",
+      "name": "Webhook - Solicitud de soporte",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [0, 0],
+      "webhookId": "sie-support-requested",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "lYiPRNNm7HNxTk6F",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "let body = $json.body ?? $json;\nif (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = null; } }\nconst missing = [];\nconst invalid = [];\nconst blank = (v) => v === undefined || v === null || (typeof v === 'string' && v.trim() === '');\nif (!body || typeof body !== 'object' || Array.isArray(body)) {\n  return { valid: false, http_status: 400, response_body: { success: false, error_type: 'invalid_structure', message: 'El cuerpo debe ser un objeto JSON' } };\n}\nconst i = body.incident || {};\nfor (const [path, value] of [['event_id', body.event_id], ['incident.id', i.id], ['incident.reference', i.reference], ['incident.customer_name', i.customer_name], ['incident.customer_email', i.customer_email], ['incident.subject', i.subject], ['incident.description', i.description], ['incident.telegram_chat_id', i.telegram_chat_id]]) {\n  if (blank(value)) missing.push(path);\n}\nif (body.event_type !== 'support.requested') invalid.push({ field: 'event_type', message: 'Debe ser support.requested' });\nif (!blank(i.id) && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(i.id))) invalid.push({ field: 'incident.id', message: 'UUID no válido' });\nif (!blank(i.customer_email) && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(i.customer_email))) invalid.push({ field: 'incident.customer_email', message: 'Correo no válido' });\nif (!blank(body.timestamp) && Number.isNaN(Date.parse(body.timestamp))) invalid.push({ field: 'timestamp', message: 'Fecha no válida' });\nconst valid = missing.length === 0 && invalid.length === 0;\nreturn {\n  valid, missing_fields: missing, invalid_fields: invalid,\n  event_id: body.event_id || null, incident_id: i.id || null, reference: i.reference || null,\n  order_id: i.order_id || null, customer_name: i.customer_name || null,\n  customer_email: i.customer_email ? String(i.customer_email).trim().toLowerCase() : null,\n  subject: i.subject || null, description: i.description || null,\n  priority: i.priority || 'medium', status: i.status || 'open',\n  telegram_chat_id: i.telegram_chat_id || null, created_at: body.timestamp || new Date().toISOString(),\n  http_status: valid ? 200 : 400,\n  response_body: valid ? null : { success: false, error_type: missing.length ? 'missing_fields' : 'invalid_values', missing_fields: missing, invalid_fields: invalid, message: 'Evento support.requested inválido' }\n};"
+      },
+      "id": "ac0596c5-d11c-48b1-83a0-c31cff25546d",
+      "name": "Validar incidencia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [{ "leftValue": "={{ $json.valid }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true", "singleValue": true } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ab3f2870-b4ab-4ad0-bb36-d932622fbe55",
+      "name": "¿Incidencia válida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.incidents (\n  incident_id, source_reference, order_id, customer_id, customer_name,\n  subject, incident_type, description, priority, status, telegram_chat_id,\n  created_at, updated_at\n) VALUES (\n  $1::uuid, $2, $3, $4, $5, $6, 'support_request', $7, $8, $9, $10, $11::timestamptz, now()\n)\nON CONFLICT (incident_id) DO UPDATE SET\n  source_reference = EXCLUDED.source_reference,\n  order_id = EXCLUDED.order_id,\n  customer_id = EXCLUDED.customer_id,\n  customer_name = EXCLUDED.customer_name,\n  subject = EXCLUDED.subject,\n  description = EXCLUDED.description,\n  priority = EXCLUDED.priority,\n  telegram_chat_id = COALESCE(public.incidents.telegram_chat_id, EXCLUDED.telegram_chat_id),\n  updated_at = now()\nRETURNING incident_id, source_reference, telegram_message_id, telegram_chat_id;",
+        "options": {
+          "queryReplacement": "={{ [ $json.incident_id, $json.reference, $json.order_id, $json.customer_email, $json.customer_name, $json.subject, $json.description, $json.priority, $json.status, $json.telegram_chat_id, $json.created_at ] }}"
+        }
+      },
+      "id": "dc97feb5-8d26-4307-9b3e-fd1e5aab740f",
+      "name": "Neon - Crear incidencia",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [720, -100],
+      "credentials": {
+        "postgres": {
+          "id": "jxtpqbugQsb2jtvj",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const event = $('Validar incidencia').first().json;\nconst already = Boolean($json.telegram_message_id);\nreturn {\n  ...event, already_notified: already, should_send: !already,\n  response_body: already ? { success: true, event_id: event.event_id, incident_id: event.incident_id, reference: event.reference, integration_status: 'already_processed', message: 'Incidencia ya creada y notificada' } : null\n};"
+      },
+      "id": "c1ad60e9-c908-4889-b858-93e20191cf16",
+      "name": "Comprobar idempotencia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, -100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [{ "leftValue": "={{ $json.should_send }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true", "singleValue": true } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c8a389e4-7079-48da-953f-e0acb247b180",
+      "name": "¿Notificar por Telegram?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1200, -100]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegram_chat_id }}",
+        "text": "={{ '🆕 Nueva incidencia de soporte\\n\\nReferencia: ' + $json.reference + '\\nPedido: ' + ($json.order_id || 'sin pedido asociado') + '\\nCliente: ' + $json.customer_name + '\\nAsunto: ' + $json.subject + '\\n\\nRevisa los detalles y gestiona la incidencia desde CoreAdmin.\\n\\nPrototipo académico SIE.' }}",
+        "additionalFields": { "appendAttribution": false }
+      },
+      "id": "32fb6ed7-37d4-47d2-aae8-e48a8ec737f6",
+      "name": "Telegram - Avisar nueva incidencia",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1440, -220],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH updated AS (\n  UPDATE public.incidents\n  SET telegram_message_id = $2, telegram_notified_at = now(), updated_at = now()\n  WHERE incident_id = $1::uuid\n  RETURNING incident_id\n),\nlogged AS (\n  INSERT INTO public.integration_logs (event_id, event_type, order_id, workflow_name, execution_id, integration_status, created_at)\n  VALUES ($3, 'support.requested', $4, 'SIE - Incidencia y Telegram', $5, 'completed', now())\n  RETURNING integration_status\n)\nSELECT (SELECT incident_id FROM updated) AS incident_id, (SELECT integration_status FROM logged) AS integration_status;",
+        "options": {
+          "queryReplacement": "={{ [ $('Validar incidencia').first().json.incident_id, String($json.message_id || ''), $('Validar incidencia').first().json.event_id, $('Validar incidencia').first().json.order_id, $execution.id ] }}"
+        }
+      },
+      "id": "ed3e00ea-e086-4e34-962b-260f09cab84a",
+      "name": "Neon - Registrar notificación",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [1680, -280],
+      "credentials": {
+        "postgres": {
+          "id": "jxtpqbugQsb2jtvj",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.integration_logs (event_id, event_type, order_id, workflow_name, execution_id, integration_status, error_type, error_message, created_at)\nVALUES ($1, 'support.requested', $2, 'SIE - Incidencia y Telegram', $3, 'failed', 'telegram_error', $4, now())\nRETURNING 'retry'::text AS integration_status;",
+        "options": {
+          "queryReplacement": "={{ [ $('Validar incidencia').first().json.event_id, $('Validar incidencia').first().json.order_id, $execution.id, String($json.error?.message || $json.message || 'Telegram no respondió') ] }}"
+        }
+      },
+      "id": "d34b8c37-dfea-401e-98cd-14ef2010830e",
+      "name": "Neon - Registrar error Telegram",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [1680, -100],
+      "credentials": {
+        "postgres": {
+          "id": "jxtpqbugQsb2jtvj",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const event = $('Validar incidencia').first().json;\nconst failed = $json.integration_status === 'retry';\nreturn {\n  http_status: failed ? 503 : 200,\n  response_body: { success: !failed, event_id: event.event_id, incident_id: event.incident_id, reference: event.reference, integration_status: failed ? 'retry' : 'completed', message: failed ? 'Telegram falló; el backend reintentará' : 'Incidencia creada y notificada por Telegram' }\n};"
+      },
+      "id": "e6f6fab9-7bd7-452d-9481-b72bd57c3818",
+      "name": "Preparar respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, -220]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.response_body) }}",
+        "options": { "responseCode": "={{ $json.http_status || 200 }}" }
+      },
+      "id": "e664881e-651d-484d-8584-04ec9e5d26ec",
+      "name": "Responder al backend",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [2160, 0]
+    }
+  ],
+  "connections": {
+    "Webhook - Solicitud de soporte": { "main": [[{ "node": "Validar incidencia", "type": "main", "index": 0 }]] },
+    "Validar incidencia": { "main": [[{ "node": "¿Incidencia válida?", "type": "main", "index": 0 }]] },
+    "¿Incidencia válida?": { "main": [[{ "node": "Neon - Crear incidencia", "type": "main", "index": 0 }], [{ "node": "Responder al backend", "type": "main", "index": 0 }]] },
+    "Neon - Crear incidencia": { "main": [[{ "node": "Comprobar idempotencia", "type": "main", "index": 0 }]] },
+    "Comprobar idempotencia": { "main": [[{ "node": "¿Notificar por Telegram?", "type": "main", "index": 0 }]] },
+    "¿Notificar por Telegram?": { "main": [[{ "node": "Telegram - Avisar nueva incidencia", "type": "main", "index": 0 }], [{ "node": "Responder al backend", "type": "main", "index": 0 }]] },
+    "Telegram - Avisar nueva incidencia": { "main": [[{ "node": "Neon - Registrar notificación", "type": "main", "index": 0 }], [{ "node": "Neon - Registrar error Telegram", "type": "main", "index": 0 }]] },
+    "Neon - Registrar notificación": { "main": [[{ "node": "Preparar respuesta", "type": "main", "index": 0 }]] },
+    "Neon - Registrar error Telegram": { "main": [[{ "node": "Preparar respuesta", "type": "main", "index": 0 }]] },
+    "Preparar respuesta": { "main": [[{ "node": "Responder al backend", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false,
+  "tags": []
+}
