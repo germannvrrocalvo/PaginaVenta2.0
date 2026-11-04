@@ -1,0 +1,12 @@
+{
+  "event_id": "order.status_changed:UC-2026-09001:3f6c2a8e-7b1d-4c5e-9a2f-1d8e4b6c0a91",
+  "event_type": "order.status_changed",
+  "timestamp": "2026-11-05T10:20:00.000Z",
+  "order": {
+    "id": "UC-2026-09001",
+    "previous_status": "creado",
+    "status": "pagado",
+    "changed_at": "2026-11-05T10:20:00.000Z",
+    "change_source": "paypal"
+  }
+}

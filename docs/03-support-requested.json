@@ -1,0 +1,17 @@
+{
+  "event_id": "support.requested:INC-9A3F2C",
+  "event_type": "support.requested",
+  "timestamp": "2026-11-05T11:00:00.000Z",
+  "incident": {
+    "id": "b7e4c1d2-5a6f-4e8b-9c3d-2f1a0e7b6d45",
+    "reference": "INC-9A3F2C",
+    "order_id": "UC-2026-09001",
+    "customer_name": "Cliente Demo",
+    "customer_email": "cliente@ucam.test",
+    "subject": "Auriculares HD 599 con ruido en el canal izquierdo",
+    "description": "Pedido UC-2026-09001. Los auriculares Sennheiser HD 599 llegaron ayer y el canal izquierdo emite un zumbido constante con cualquier fuente. Solicito cambio o devolución. Datos ficticios de prueba académica.",
+    "priority": "medium",
+    "status": "open",
+    "telegram_chat_id": "REEMPLAZAR_CON_TELEGRAM_TEST_CHAT_ID"
+  }
+}

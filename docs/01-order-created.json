@@ -1,0 +1,28 @@
+{
+  "event_id": "order.created:UC-2026-09001",
+  "event_type": "order.created",
+  "timestamp": "2026-11-05T10:15:00.000Z",
+  "order": {
+    "id": "UC-2026-09001",
+    "customer_id": "2",
+    "customer_email": "cliente@ucam.test",
+    "items": [
+      {
+        "product_id": "p002",
+        "name": "PS-LX310BT",
+        "quantity": 1,
+        "unit_price": 249
+      },
+      {
+        "product_id": "p007",
+        "name": "HD 599",
+        "quantity": 1,
+        "unit_price": 129
+      }
+    ],
+    "total": 378,
+    "currency": "EUR",
+    "status": "pending",
+    "created_at": "2026-11-05T10:15:00.000Z"
+  }
+}
