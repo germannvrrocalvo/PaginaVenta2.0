@@ -73,6 +73,7 @@ test('reconcilia pedidos, importes, pago y líneas en la base del back office', 
   assert.deepEqual(result, { skipped: false, orders: 1, items: 1 })
   assert.equal(statements[0].sql, 'BEGIN')
   assert.match(statements[1].sql, /INSERT INTO orders/)
+  assert.match(statements[1].sql, /'store\.sync:' \|\| \$1/)
   assert.match(statements[1].sql, /ON CONFLICT \(order_id\) DO UPDATE/)
   assert.equal(statements[1].parameters[0], 'UC-2026-01027')
   assert.equal(statements[1].parameters[9], '56.90')

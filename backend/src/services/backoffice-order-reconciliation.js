@@ -95,15 +95,15 @@ function createBackofficeOrderReconciliation(storePool, backofficePool, {
       await client.query('BEGIN')
       for (const order of orders) {
         await client.query(
-          `INSERT INTO orders (
-             order_id, customer_id, customer_email, customer_name, customer_phone,
+           `INSERT INTO orders (
+             order_id, event_id, customer_id, customer_email, customer_name, customer_phone,
              shipping_address, subtotal_amount, discount_amount, shipping_amount,
              total_amount, tax_rate, tax_base_amount, tax_amount, currency,
              order_status, payment_status, payment_method, payment_reference,
              paypal_order_id, paypal_capture_id, paid_at, receipt_sent_at,
              created_at, source_updated_at, source_synced_at, source_system, integrated_at
            ) VALUES (
-             $1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, $13,
+             $1, 'store.sync:' || $1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, $13,
              'EUR', $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, now(),
              'store', now()
            )
