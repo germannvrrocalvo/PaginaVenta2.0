@@ -2054,3 +2054,184 @@ body {
   background: #fee2e2;
   color: #b91c1c;
 }
+
+/* =================================
+   CUADRO DE MANDO (CHARTBREW)
+================================= */
+
+.cm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.cm-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.cm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cm-badge.live {
+  background: #e7f6ec;
+  color: #15803d;
+}
+
+.cm-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
+}
+
+.cm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid #d5dbe5;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #172b4d;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cm-btn:hover {
+  background: #f1f5f9;
+}
+
+.cm-btn.primary {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.cm-btn.primary:hover {
+  background: #1d4ed8;
+}
+
+.cm-frame-panel {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  height: 1150px;
+  background: #f5f4f2;
+}
+
+.cm-frame-panel.expanded {
+  height: 1700px;
+}
+
+.cm-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.cm-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #64748b;
+  font-size: 14px;
+  background: #f8fafc;
+  pointer-events: none;
+}
+
+.cm-spin {
+  animation: cm-spin 1s linear infinite;
+}
+
+@keyframes cm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.cm-hint {
+  margin: 10px 0 20px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.cm-info {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.cm-info-card {
+  display: flex;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.cm-info-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.cm-info-card strong {
+  display: block;
+  font-size: 14px;
+  color: #172b4d;
+  margin-bottom: 4px;
+}
+
+.cm-info-card p {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+@media (max-width: 1100px) {
+  .cm-info {
+    grid-template-columns: 1fr;
+  }
+
+  .cm-frame-panel {
+    height: 1400px;
+  }
+}

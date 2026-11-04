@@ -1,261 +1,124 @@
+import { useState } from 'react'
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer
-} from "recharts";
-
-import {
-  ShoppingCart,
-  Euro,
-  AlertCircle,
+  ExternalLink,
+  Database,
+  ShieldCheck,
+  Clock,
   RefreshCw,
-  CheckCircle2,
-  Info
-} from "lucide-react";
+  Maximize2,
+  Minimize2,
+} from 'lucide-react'
 
-import StatCard from "../components/StatCard";
+// Cuadro de mando operativo con datos REALES del back-office.
+// Está hecho en Chartbrew, que lee las vistas de solo lectura de
+// database/backoffice/dashboard.sql con el usuario dashboard_reader.
+// La URL es un enlace público de solo lectura (no da acceso a la BD).
+// Se puede cambiar con VITE_DASHBOARD_EMBED_URL sin tocar el código.
+const DASHBOARD_URL =
+  import.meta.env.VITE_DASHBOARD_EMBED_URL ||
+  'https://app.chartbrew.com/report/my-first-dashboard-200XalYo?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ2ZXJzaW9uIjoyLCJzdWIiOnsidHlwZSI6IlByb2plY3QiLCJpZCI6IjQzNjM3Iiwic2hhcmVQb2xpY3lJZCI6MjAxfSwiaWF0IjoxNzkzODEwOTIwLCJleHAiOjEwNDMzNzI0NTIwfQ.BcnewrBOzzrf4n7xsfiBE5tUMOG5tB4QpNAAwYRMBh8'
 
-import {
-  dashboardStats,
-  ordersChartData,
-  recentOrders,
-  recentActivity
-} from "../data/mockData";
-
-const statIcons = [
-  ShoppingCart,
-  Euro,
-  AlertCircle,
-  RefreshCw
-];
+const infoCards = [
+  {
+    icon: Database,
+    title: 'Fuente de datos',
+    text: 'BD del back-office (sie-backoffice-db, Neon): pedidos, integración con n8n, incidencias y agente IA.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Acceso de solo lectura',
+    text: 'El cuadro de mando usa el usuario dashboard_reader, que solo puede leer las vistas del esquema dashboard.',
+  },
+  {
+    icon: Clock,
+    title: 'Actualización',
+    text: 'Las métricas se recalculan a partir de los datos que escribe n8n. Sin cifras introducidas a mano.',
+  },
+]
 
 function Dashboard() {
-  const activityIcons = {
-    success: CheckCircle2,
-    warning: AlertCircle,
-    info: Info,
-    order: ShoppingCart
-  };
+  const [frameKey, setFrameKey] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState(false)
+
+  function reload() {
+    setLoading(true)
+    setFrameKey((k) => k + 1)
+  }
 
   return (
     <div className="dashboard">
-
-      {/* BIENVENIDA */}
-
-      <div className="dashboard-welcome">
+      <div className="dashboard-welcome cm-header">
         <div>
-          <h2>Bienvenido a CoreAdmin</h2>
-          <p>
-            Aquí tienes un resumen de la actividad del negocio.
-          </p>
-        </div>
-      </div>
-
-      {/* TARJETAS DE MÉTRICAS */}
-
-      <div className="stats-grid">
-        {dashboardStats.map((stat, index) => (
-          <StatCard
-            key={stat.title}
-            title={stat.title}
-            value={stat.value}
-            description={stat.description}
-            color={stat.color}
-            icon={statIcons[index] || Info}
-          />
-        ))}
-      </div>
-
-      {/* GRÁFICO Y ACTIVIDAD RECIENTE */}
-
-      <div className="dashboard-grid">
-
-        {/* GRÁFICO DE PEDIDOS */}
-
-        <section className="dashboard-panel chart-panel">
-          <div className="panel-header">
-            <div>
-              <h3>Evolución de pedidos</h3>
-              <p>Pedidos registrados durante la última semana</p>
-            </div>
-
-            <span className="panel-period">
-              Últimos 7 días
+          <h2>Cuadro de mando operativo</h2>
+          <p>Métricas reales del back-office de UCAM Stereo.</p>
+          <div className="cm-badges">
+            <span className="cm-badge live">
+              <span className="cm-dot" />
+              Datos reales
             </span>
+            <span className="cm-badge">Solo lectura</span>
+            <span className="cm-badge">Prototipo académico</span>
           </div>
+        </div>
 
-          <div className="chart-container">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={ordersChartData}>
-                <defs>
-                  <linearGradient
-                    id="ordersGradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="0%"
-                      stopColor="#2563EB"
-                      stopOpacity={0.25}
-                    />
-
-                    <stop
-                      offset="100%"
-                      stopColor="#2563EB"
-                      stopOpacity={0}
-                    />
-                  </linearGradient>
-                </defs>
-
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke="#E8ECF2"
-                />
-
-                <XAxis
-                  dataKey="day"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#8490A3", fontSize: 12 }}
-                />
-
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#8490A3", fontSize: 12 }}
-                />
-
-                <Tooltip />
-
-                <Area
-                  type="monotone"
-                  dataKey="orders"
-                  name="Pedidos"
-                  stroke="#2563EB"
-                  strokeWidth={3}
-                  fill="url(#ordersGradient)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-
-        {/* ACTIVIDAD RECIENTE */}
-
-        <section className="dashboard-panel activity-panel">
-          <div className="panel-header">
-            <div>
-              <h3>Actividad reciente</h3>
-              <p>Últimos eventos del sistema</p>
-            </div>
-          </div>
-
-          <div className="activity-list">
-            {recentActivity.map((activity) => {
-              const Icon = activityIcons[activity.type] || Info;
-
-              return (
-                <div
-                  className="activity-item"
-                  key={`${activity.title}-${activity.time}`}
-                >
-                  <div className={`activity-icon ${activity.type}`}>
-                    <Icon size={17} />
-                  </div>
-
-                  <div className="activity-info">
-                    <strong>{activity.title}</strong>
-                    <span>{activity.description}</span>
-                    <small>{activity.time}</small>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
+        <div className="cm-actions">
+          <button type="button" className="cm-btn" onClick={reload}>
+            <RefreshCw size={16} />
+            Recargar
+          </button>
+          <button type="button" className="cm-btn" onClick={() => setExpanded((v) => !v)}>
+            {expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            {expanded ? 'Reducir' : 'Ampliar'}
+          </button>
+          <a
+            className="cm-btn primary"
+            href={DASHBOARD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <ExternalLink size={16} />
+            Abrir en pestaña nueva
+          </a>
+        </div>
       </div>
 
-      {/* TABLA DE PEDIDOS RECIENTES */}
-
-      <section className="dashboard-panel orders-panel">
-
-        <div className="panel-header">
-          <div>
-            <h3>Pedidos recientes</h3>
-            <p>Últimos pedidos registrados en el sistema</p>
+      <section className={`dashboard-panel cm-frame-panel${expanded ? ' expanded' : ''}`}>
+        {loading && (
+          <div className="cm-loading">
+            <RefreshCw size={22} className="cm-spin" />
+            <span>Cargando el cuadro de mando…</span>
           </div>
-
-          <span className="panel-period">
-            Últimos pedidos
-          </span>
-        </div>
-
-        <div className="table-container">
-          <table className="orders-table">
-
-            <thead>
-              <tr>
-                <th>Pedido</th>
-                <th>Cliente</th>
-                <th>Fecha</th>
-                <th>Importe</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {recentOrders.map((order) => (
-                <tr key={order.id}>
-                  <td className="order-id">
-                    {order.id}
-                  </td>
-
-                  <td>
-                    {order.customer}
-                  </td>
-
-                  <td>
-                    {order.date || "—"}
-                  </td>
-
-                  <td className="order-amount">
-                    {order.amount || order.total || "—"}
-                  </td>
-
-                  <td>
-                    <span
-                      className={`status-badge ${
-                        order.status === "Enviado"
-                          ? "status-success"
-                          : order.status === "Pagado"
-                          ? "status-info"
-                          : order.status === "Con incidencia"
-                          ? "status-danger"
-                          : "status-warning"
-                      }`}
-                    >
-                      {order.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-
-          </table>
-        </div>
-
+        )}
+        <iframe
+          key={frameKey}
+          className="cm-frame"
+          src={DASHBOARD_URL}
+          title="Cuadro de mando UCAM Stereo"
+          loading="lazy"
+          onLoad={() => setLoading(false)}
+        />
       </section>
 
+      <p className="cm-hint">
+        ¿No se ve el cuadro de mando? Ábrelo con <strong>Abrir en pestaña nueva</strong>.
+      </p>
+
+      <div className="cm-info">
+        {infoCards.map(({ icon: Icon, title, text }) => (
+          <div className="cm-info-card" key={title}>
+            <div className="cm-info-icon">
+              <Icon size={18} />
+            </div>
+            <div>
+              <strong>{title}</strong>
+              <p>{text}</p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
-  );
+  )
 }
 
-export default Dashboard;
+export default Dashboard
