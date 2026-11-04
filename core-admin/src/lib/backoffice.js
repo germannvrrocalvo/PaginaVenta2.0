@@ -2,6 +2,8 @@ import { api } from './api'
 
 export const listIncidents = () => api('/backoffice/Tickets_soporte')
 
+export const listOrders = () => api('/backoffice/pedidos')
+
 export const updateIncidentStatus = (reference, status) => api(
   `/backoffice/Tickets_soporte/${encodeURIComponent(reference)}/estado`,
   { method: 'PATCH', body: { status } }

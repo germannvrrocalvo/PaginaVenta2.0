@@ -18,6 +18,21 @@ const TO_UI_STATUS = {
   closed: 'cerrada',
 }
 
+const ORDER_STATUS_LABELS = {
+  creado: 'Creado',
+  pagado: 'Pagado',
+  pendiente_preparacion: 'En preparación',
+  enviado: 'Enviado',
+  entregado: 'Entregado',
+  cancelado: 'Cancelado',
+  con_incidencia: 'Con incidencia',
+}
+
+const PAYMENT_STATUS_LABELS = {
+  approved: 'Pagado',
+  declined: 'Rechazado',
+}
+
 function mapTicket(row) {
   return {
     id: row.source_reference,
@@ -49,6 +64,35 @@ function mapTicket(row) {
       telegramMessageId: row.telegram_message_id,
       createdAt: new Date(row.action_created_at).toISOString(),
     } : null,
+  }
+}
+
+function mapOrder(row, products) {
+  return {
+    id: row.order_id,
+    customerId: row.customer_id,
+    customer: row.customer_name || row.customer_email || row.customer_id || 'Sin identificar',
+    email: row.customer_email || '',
+    phone: row.customer_phone || '',
+    createdAt: new Date(row.created_at).toISOString(),
+    updatedAt: row.source_updated_at ? new Date(row.source_updated_at).toISOString() : null,
+    syncedAt: row.source_synced_at ? new Date(row.source_synced_at).toISOString() : null,
+    subtotal: Number(row.subtotal_amount || 0),
+    discount: Number(row.discount_amount || 0),
+    shipping: Number(row.shipping_amount || 0),
+    taxRate: Number(row.tax_rate || 0),
+    taxBase: Number(row.tax_base_amount || 0),
+    tax: Number(row.tax_amount || 0),
+    total: Number(row.total_amount || 0),
+    currency: row.currency || 'EUR',
+    rawStatus: row.order_status,
+    status: ORDER_STATUS_LABELS[row.order_status] || row.order_status,
+    rawPaymentStatus: row.payment_status,
+    payment: PAYMENT_STATUS_LABELS[row.payment_status] || (row.payment_status ? row.payment_status : 'Pendiente'),
+    paymentMethod: row.payment_method,
+    paymentReference: row.payment_reference,
+    shippingAddress: row.shipping_address || {},
+    products,
   }
 }
 
@@ -102,6 +146,49 @@ function createBackofficeActivityService(pool) {
   async function listTickets() {
     const { rows } = await pool.query(`${selection} ORDER BY i.created_at DESC`)
     return rows.map(mapTicket)
+  }
+
+  async function listOrders() {
+    const { rows } = await pool.query(
+      `SELECT order_id, customer_id, customer_email, customer_name, customer_phone,
+              shipping_address, subtotal_amount, discount_amount, shipping_amount,
+              tax_rate, tax_base_amount, tax_amount, total_amount, currency,
+              order_status, payment_status, payment_method, payment_reference,
+              created_at, source_updated_at, source_synced_at
+       FROM orders
+       WHERE source_system = 'store'
+       ORDER BY created_at DESC, order_id DESC`
+    )
+    if (rows.length === 0) return []
+
+    const orderIds = rows.map((row) => row.order_id)
+    const { rows: itemRows } = await pool.query(
+      `SELECT order_id, product_id, source_product_id, variant_id, product_name,
+              brand, variant_type, variant_value, quantity, unit_price, line_total
+       FROM order_items
+       WHERE order_id = ANY($1::text[])
+       ORDER BY order_id, id`,
+      [orderIds]
+    )
+    const productsByOrder = new Map()
+    for (const item of itemRows) {
+      const products = productsByOrder.get(item.order_id) || []
+      products.push({
+        id: item.product_id,
+        sourceProductId: item.source_product_id,
+        variantId: item.variant_id,
+        name: item.product_name || item.source_product_id || item.product_id,
+        brand: item.brand,
+        variantType: item.variant_type,
+        variantValue: item.variant_value,
+        quantity: Number(item.quantity),
+        price: Number(item.unit_price),
+        lineTotal: Number(item.line_total),
+      })
+      productsByOrder.set(item.order_id, products)
+    }
+
+    return rows.map((row) => mapOrder(row, productsByOrder.get(row.order_id) || []))
   }
 
   async function upsertAgentAction(incidentId, action) {
@@ -166,7 +253,14 @@ function createBackofficeActivityService(pool) {
     return findTicket(reference)
   }
 
-  return { upsertTicket, upsertAgentAction, listTickets, findTicket, updateTicketStatus }
+  return {
+    upsertTicket,
+    upsertAgentAction,
+    listTickets,
+    listOrders,
+    findTicket,
+    updateTicketStatus,
+  }
 }
 
 module.exports = { createBackofficeActivityService }

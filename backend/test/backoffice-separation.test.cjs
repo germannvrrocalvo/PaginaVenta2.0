@@ -47,6 +47,75 @@ test('sincroniza una incidencia en el modelo independiente del back office', asy
   assert.equal(insert.parameters[8], 'open')
 })
 
+test('lista únicamente pedidos reales del back office con sus líneas', async () => {
+  const queries = []
+  const pool = {
+    async query(sql, parameters) {
+      queries.push({ sql, parameters })
+      if (sql.includes('FROM orders')) {
+        return { rows: [{
+          order_id: 'UC-2026-01027',
+          customer_id: '7',
+          customer_email: 'cliente@example.test',
+          customer_name: 'Cliente Ejemplo',
+          customer_phone: '600000000',
+          shipping_address: { city: 'Murcia' },
+          subtotal_amount: '50.00',
+          discount_amount: '0.00',
+          shipping_amount: '6.90',
+          tax_rate: '21.00',
+          tax_base_amount: '47.02',
+          tax_amount: '9.88',
+          total_amount: '56.90',
+          currency: 'EUR',
+          order_status: 'pagado',
+          payment_status: 'approved',
+          payment_method: 'paypal_simulado',
+          payment_reference: 'PAY-ABC123',
+          created_at: new Date('2026-11-04T16:55:00.000Z'),
+          source_updated_at: new Date('2026-11-04T17:00:00.000Z'),
+          source_synced_at: new Date('2026-11-04T17:01:00.000Z'),
+        }] }
+      }
+      return { rows: [{
+        order_id: 'UC-2026-01027',
+        product_id: 'vinilo-azul:edicion-limitada',
+        source_product_id: 'vinilo-azul',
+        variant_id: 'edicion-limitada',
+        product_name: 'Vinilo Azul',
+        brand: 'UCAM Records',
+        variant_type: 'Color',
+        variant_value: 'Azul',
+        quantity: 2,
+        unit_price: '25.00',
+        line_total: '50.00',
+      }] }
+    },
+  }
+
+  const orders = await createBackofficeActivityService(pool).listOrders()
+
+  assert.equal(orders.length, 1)
+  assert.equal(orders[0].id, 'UC-2026-01027')
+  assert.equal(orders[0].status, 'Pagado')
+  assert.equal(orders[0].payment, 'Pagado')
+  assert.equal(orders[0].total, 56.9)
+  assert.deepEqual(orders[0].products[0], {
+    id: 'vinilo-azul:edicion-limitada',
+    sourceProductId: 'vinilo-azul',
+    variantId: 'edicion-limitada',
+    name: 'Vinilo Azul',
+    brand: 'UCAM Records',
+    variantType: 'Color',
+    variantValue: 'Azul',
+    quantity: 2,
+    price: 25,
+    lineTotal: 50,
+  })
+  assert.match(queries[0].sql, /source_system = 'store'/)
+  assert.deepEqual(queries[1].parameters, [['UC-2026-01027']])
+})
+
 test('un fallo del back office queda marcado para reintento', async () => {
   const updates = []
   const storePool = {

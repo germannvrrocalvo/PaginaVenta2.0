@@ -31,6 +31,15 @@ function createBackofficeRouter(activityService, getUserForToken) {
     }
   })
 
+  router.get('/pedidos', async (req, res) => {
+    try {
+      if (!(await requireAdmin(req, res))) return
+      res.json(await activityService.listOrders())
+    } catch (error) {
+      handleError(res, error)
+    }
+  })
+
   router.patch('/Tickets_soporte/:reference/estado', async (req, res) => {
     try {
       if (!(await requireAdmin(req, res))) return
